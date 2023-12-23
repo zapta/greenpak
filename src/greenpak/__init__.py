@@ -30,7 +30,6 @@ def read_bits_file(file_name: str) -> bytearray:
     byte_value = 0
     for line in f:
         line = line.rstrip()
-        # print(f"{bits_read}: {line}")
         if first_line:
             assert re.match(r"index\s+value\s+comment", line)
             first_line = False
@@ -214,7 +213,6 @@ class GreenpakDriver:
 
         # Construct the device i2c address
         device_i2c_addr = self.__i2c_device_addr(memory_space)
-        # print(f"device_i2c_addr: 0x{device_i2c_addr:02x}", flush=True)
 
         # We write the start address followed by the data bytes
         payload = bytearray()
@@ -253,19 +251,15 @@ class GreenpakDriver:
         # We erase by writing to the register ERSR byte, and waiting.
         msb = {MemorySpace.NVM: 0x80, MemorySpace.EEPROM: 0x90}[memory_space]
         ersr_byte = msb | page_id
-        # print(f"ersr byte: {ersr_byte:02x}", flush=True)
         device_i2c_addr = self.__i2c_device_addr(MemorySpace.REGISTER)
         # TODO: Find a cleaner solution for the errata's workaround.
         self.write_register_bytes(0xE3, bytearray([ersr_byte]))
         # Allow the operation to complete. Datasheet says 20ms max.
-        print(f"Started erase delay.", flush=True)
         time.sleep(0.025)
-        print(f"Completed erase delay.", flush=True)
         
         # Woraround. Perform a dummy write to clear the error from the previous write, per the errata.
         # https://www.renesas.com/us/en/document/dve/slg46824-errata?language=en
         assert self.__i2c.i2c_reset()
-        # print(f"I2C reset ok.", flush=True)
 
         # Verify that the page is all zeros.
         assert self.__is_page_erased(memory_space, page_id)
@@ -352,11 +346,6 @@ class GreenpakDriver:
         assert 0 <= control_code <= 15
         device_i2c_addr = self.__i2c_device_addr(MemorySpace.REGISTER, control_code)
         ok = self.__i2c.i2c_write(device_i2c_addr, bytearray([0]))
-        # ack1 = self.__i2c.start(device_i2c_addr, 0)
-        # ack2 = self.__i2c.write([0])
-        # self.__i2c.stop()
-        # print(f"{control_code} {device_i2c_addr:02x}, ack1 = {ack1}, ack2 = {ack2}")
-        # return ack1 and ack2
         return ok
       
     def scan_devices(self):
