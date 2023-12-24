@@ -224,7 +224,9 @@ class GreenpakDriver:
             _MemorySpace.EEPROM,
         )
         assert 0 <= page_id <= 15
-        is_read_only = (memory_space == _MemorySpace.NVM) and (page_id in self.__device_info.ro_nvm_pages)
+        is_read_only = (memory_space == _MemorySpace.NVM) and (
+            page_id in self.__device_info.ro_nvm_pages
+        )
         return not is_read_only
 
     def __write_bytes(
@@ -299,7 +301,7 @@ class GreenpakDriver:
         # https://www.renesas.com/us/en/document/dve/slg46824-errata?language=en
         device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
         self.__i2c.i2c_write(device_i2c_addr, bytearray([0]), silent=True)
-        
+
         # device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
         # self.__i2c_device_addr()
         # assert self.__i2c.i2c_reset()
@@ -360,7 +362,7 @@ class GreenpakDriver:
         for i in range(0, num_pages):
             if not self.is_page_writeable(memory_space, i):
                 print(
-                    f"Page {memory_space.name}/{i} is not user writable, skipping.",
+                    f"Page {memory_space.name}/{i} a read only page, skipping.",
                     flush=True,
                 )
             else:
