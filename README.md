@@ -10,23 +10,22 @@ pip install greenpak_driver --upgrade
 
 Sample usage:
 ```python
-
-import greenpak_driver as gp
+import greenpak as gp
 
 print("Connecting.")
-driver = gp.GreenPakDriver(port="COM17", control_code=0b0001)
+driver = gp.GreenpakDriver(port="COM17", device="SLG46826", control_code=0b0001)
 
 print("Loading configuration.")
-data = gp.load_greenpak_bits_file("my_design.txt)
-gp.dump_hex(data)
+data = gp.read_bits_file("slg46826_blinky_fast.txt")
+gp.hex_dump(data)
 
 print("Programming NVM.")
 driver.program_nvm_pages(0, data)
 
 print ("Reading NVM.")
 data = driver.read_nvm_bytes(0, 256)
-gp.dump_hex(data)
+gp.hex_dump(data)
 
-print("Reseting the devic.e")
+print("Reseting the device.")
 driver.reset_device()
 ```
