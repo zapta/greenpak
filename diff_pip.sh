@@ -2,11 +2,10 @@
 
 # A script to diff the pip installed serial_packets against the local git repo
 
-#pip_pkg="/c/Users/user/AppData/Roaming/Python/Python311/site-packages/serial_packets"
-pip_pkg="/c/Users/user/AppData/Local/Programs/Python/Python312/Lib/site-packages/i2c_adapter"
+pip_pkg="/c/Users/user/AppData/Local/Programs/Python/Python312/Lib/site-packages/greenpak"
 
 
-git_pkg="./src/i2c_adapter"
+git_pkg="./src/greenpak"
 
 #ls $pip_pkg
 #ls $git_pkg
