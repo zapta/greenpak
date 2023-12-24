@@ -196,9 +196,9 @@ class GreenpakDriver:
         device_i2c_addr = self.__i2c_device_addr(memory_space)
 
         # Write the start address to read.
-        ok = self.__i2c.i2c_write(device_i2c_addr, bytearray([start_address]))
+        ok = self.__i2c.write(device_i2c_addr, bytearray([start_address]))
         assert ok
-        resp_bytes = self.__i2c.i2c_read(device_i2c_addr, n)
+        resp_bytes = self.__i2c.read(device_i2c_addr, n)
 
         assert resp_bytes is not None
         assert n == len(resp_bytes)
@@ -260,12 +260,8 @@ class GreenpakDriver:
         payload.extend(data)
 
         # Write the data
-        ok = self.__i2c.i2c_write(device_i2c_addr, bytearray(payload))
+        ok = self.__i2c.write(device_i2c_addr, bytearray(payload))
         assert ok
-        # assert ack
-        # ack = self.__i2c.write(bytearray(payload))
-        # assert ack
-        # self.__i2c.stop()
 
     def __read_page(self, memory_space: _MemorySpace, page_id: int) -> bool:
         """Read a 16 bytes page of a NVM or EEPROM memory spaces."""
@@ -300,11 +296,9 @@ class GreenpakDriver:
         # This is a workaround for the erase issue describe in the errata at:
         # https://www.renesas.com/us/en/document/dve/slg46824-errata?language=en
         device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
-        self.__i2c.i2c_write(device_i2c_addr, bytearray([0]), silent=True)
+        self.__i2c.write(device_i2c_addr, bytearray([0]), silent=True)
 
-        # device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
-        # self.__i2c_device_addr()
-        # assert self.__i2c.i2c_reset()
+
 
         # Verify that the page is all zeros.
         assert self.__is_page_erased(memory_space, page_id)
@@ -393,7 +387,7 @@ class GreenpakDriver:
         """Test if a device exists at given control_code."""
         assert 0 <= control_code <= 15
         device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER, control_code)
-        ok = self.__i2c.i2c_write(device_i2c_addr, bytearray([0]), silent=True)
+        ok = self.__i2c.write(device_i2c_addr, bytearray([0]), silent=True)
         return ok
 
     def scan_devices(self):
