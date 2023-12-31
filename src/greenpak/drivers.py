@@ -1,7 +1,8 @@
-# I2C driver wrappers for various I2C boards.
+# I2C driver wrappers for various I2C controllers.
 
 
 from i2c_adapter import I2cAdapter
+from i2cdriver import I2CDriver
 from typing import override
 
 
@@ -18,7 +19,7 @@ class GreenPakI2cDriver:
         assert False, f"Class {self.__class__} does not implement write()"
 
     def read(
-        self, addr: int, byte_countcount: int, silent: bool = False
+        self, addr: int, byte_count: int, silent: bool = False
     ) -> bytearray | None:
         """Read the given number of bytes from the I2C device with given address.
         addr: i2c device address in the range [0, 127]
@@ -30,7 +31,7 @@ class GreenPakI2cDriver:
 
 
 class GreenPakI2cAdaper(GreenPakI2cDriver):
-    """A greenpak I2C driver using an I2C Adapter board."""
+    """A greenpak I2C driver I2C Adapter board."""
 
     def __init__(self, port):
         self.__i2c: I2cAdapter = I2cAdapter(port)
@@ -40,5 +41,29 @@ class GreenPakI2cAdaper(GreenPakI2cDriver):
         return self.__i2c.write(addr, data, silent=silent)
 
     @override
-    def read(self, addr: int, byte_count: int, silent: bool = False) -> bool:
+    def read(self, addr: int, byte_count: int, silent: bool = False) -> bytearray:
         return self.__i2c.read(addr, byte_count, silent=silent)
+
+
+class GreenPakI2cDriver(GreenPakI2cDriver):
+    """A greenpak I2C driver for the I2C Driver board."""
+
+    def __init__(self, port):
+        self.__i2c: I2CDriver = I2CDriver(port, reset=True)
+
+    @override
+    def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
+        ok1 = self.__i2c.start(addr, 0)
+        ok2 |= self.__i2c.write(data)
+        self.__i2c.stop()
+        return ok1 and ok2
+
+    @override
+    def read(
+        self, addr: int, byte_count: int, silent: bool = False
+    ) -> bytearray | None:
+        ack = self.__i2c.start(addr, 1)
+        if ack:
+            data = self.__i2c.read(byte_count)
+        self.__i2c.stop()
+        return data if ack else None
