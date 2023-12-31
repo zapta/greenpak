@@ -3,11 +3,13 @@ import greenpak as gp
 print("Connecting.")
 
 i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "COM17")
+# i2c_driver = gp.drivers.GreenPakI2cDriver(port = "COM14")
 
 gp_driver = gp.GreenpakDriver(i2c_driver, device="SLG46826", control_code=0b0001)
 
 print("Loading configuration.")
-data = gp.read_bits_file("test_data/slg46826_blinky_fast.txt")
+# data = gp.read_bits_file("test_data/slg46826_blinky_fast.txt")
+data = gp.read_bits_file("test_data/slg46826_blinky_slow.txt")
 gp.hex_dump(data)
 
 print("Programming the NVM.")
