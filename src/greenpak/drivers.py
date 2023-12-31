@@ -30,7 +30,7 @@ class GreenPakI2cDriver:
         assert False, f"Class {self.__class__} does not implement write()"
 
 
-class GreenPakI2cAdaper(GreenPakI2cDriver):
+class GreenPakI2cAdapter(GreenPakI2cDriver):
     """A greenpak I2C driver I2C Adapter board."""
 
     def __init__(self, port):
@@ -45,25 +45,26 @@ class GreenPakI2cAdaper(GreenPakI2cDriver):
         return self.__i2c.read(addr, byte_count, silent=silent)
 
 
-class GreenPakI2cDriver(GreenPakI2cDriver):
-    """A greenpak I2C driver for the I2C Driver board."""
+# TODO: Get I2CDriver Mini board and test.
+# class GreenPakI2cDriver(GreenPakI2cDriver):
+#     """A greenpak I2C driver for the I2C Driver board."""
 
-    def __init__(self, port):
-        self.__i2c: I2CDriver = I2CDriver(port, reset=True)
+#     def __init__(self, port):
+#         self.__i2c: I2CDriver = I2CDriver(port, reset=True)
 
-    @override
-    def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
-        ok1 = self.__i2c.start(addr, 0)
-        ok2 |= self.__i2c.write(data)
-        self.__i2c.stop()
-        return ok1 and ok2
+#     @override
+#     def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
+#         ok1 = self.__i2c.start(addr, 0)
+#         ok2 |= self.__i2c.write(data)
+#         self.__i2c.stop()
+#         return ok1 and ok2
 
-    @override
-    def read(
-        self, addr: int, byte_count: int, silent: bool = False
-    ) -> bytearray | None:
-        ack = self.__i2c.start(addr, 1)
-        if ack:
-            data = self.__i2c.read(byte_count)
-        self.__i2c.stop()
-        return data if ack else None
+#     @override
+#     def read(
+#         self, addr: int, byte_count: int, silent: bool = False
+#     ) -> bytearray | None:
+#         ack = self.__i2c.start(addr, 1)
+#         if ack:
+#             data = self.__i2c.read(byte_count)
+#         self.__i2c.stop()
+#         return data if ack else None

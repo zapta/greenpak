@@ -4,7 +4,7 @@
 # https://www.renesas.com/us/en/document/mat/system-programming-guide-slg468246?r=1572991
 # https://www.renesas.com/us/en/document/mat/slg47004-system-programming-guide?r=1572991
 
-from drivers import GreenPakI2cDriver
+from greenpak.drivers import GreenPakI2cDriver
 from enum import Enum
 from typing import Optional, List, Tuple, Set
 from dataclasses import dataclass
