@@ -1,2 +1,2 @@
-dist
-
+.*.sh
+__pycache__

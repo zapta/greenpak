@@ -4,14 +4,13 @@
 # https://www.renesas.com/us/en/document/mat/system-programming-guide-slg468246?r=1572991
 # https://www.renesas.com/us/en/document/mat/slg47004-system-programming-guide?r=1572991
 
-from i2c_adapter import I2cAdapter
+from drivers import GreenPakI2cDriver
 from enum import Enum
 from typing import Optional, List, Tuple, Set
 from dataclasses import dataclass
 import time
 import re
 
-# TODO: Fix the 255 count limit issue.
 # TODO: Examine transactions with the logic analyzer and make sure we don't make extra operation such as reads.
 # TODO: Handle and verify device ids.
 # TODO: Add prevention of bricking or locking.
@@ -19,7 +18,6 @@ import re
 # TODO: Convert the print messages to log messages.
 # TODO: Add a more graceful handling of errors.
 # TODO: Add a file with the main() of the command line tool.
-# TODO: Find a cleaner way to handle the errata.
 
 
 @dataclass(frozen=True)
@@ -129,12 +127,12 @@ def hex_dump(data: bytearray, start_addr: int = 0) -> None:
         row_addr += 16
 
 
-class GreenpakDriver:
+class GreenpakDriver(GreenPakI2cDriver):
     """Each instance controls an I2C bus with one or more GreenPAK devices."""
 
-    def __init__(self, port: str, device: str, control_code):
+    def __init__(self, driver: GreenPakI2cDriver, device: str, control_code):
         """Initialize using a I2CDrivcer serial port and GreenPAK device control code.."""
-        self.__i2c: I2cAdapter = I2cAdapter(port)
+        self.__i2c: GreenPakI2cDriver = driver
         self.set_device(device)
         self.set_control_code(control_code)
 
