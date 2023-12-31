@@ -12,7 +12,7 @@ print("Programming NVM.")
 gp_driver.program_nvm_pages(0, data)
 
 print ("Reading NVM.")
-data = driver.read_nvm_bytes(0, 256)
+data = gp_driver.read_nvm_bytes(0, 256)
 gp.hex_dump(data)
 
 print("Reseting the device.")
