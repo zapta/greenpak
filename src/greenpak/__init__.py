@@ -1,4 +1,4 @@
-# A library to manage and program GreenPAK devices using a I2CDriver or I2CDriver Mini adapters.
+"""A library to manage and program GreenPAK devices using USB to I2C adapters."""
 
 # Docs
 # https://www.renesas.com/us/en/document/mat/system-programming-guide-slg468246?r=1572991
