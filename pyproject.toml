@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "greenpak"
-version = "0.0.14"
+version = "0.0.15"
 authors = [
   { name="Zapta", email="zapta@zapta.com" },
 ]
@@ -25,6 +25,7 @@ classifiers = [
 
 dependencies = [
     "i2c_adapter >=0.0.4",
+    "i2cdriver >=1.0.1",
 ]
 
 [tool.hatch.build.targets.sdist]
