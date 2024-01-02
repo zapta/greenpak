@@ -1,3 +1,4 @@
 .*.sh
 __pycache__
 dist
+.DS_Store
