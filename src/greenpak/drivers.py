@@ -7,14 +7,24 @@ from typing import override
 
 
 class GreenPakI2cInterface:
-    """GreenPak compatible I2C driver."""
+    """A base class for GreenPak compatible I2C driver implementations."""
 
     def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
         """Write the given bytes to the I2C device with address.
-        addr: i2c device address in the range [0, 127]
-        data: a bytearray with 0 to 256 bytes to write.
-        silent: if True, do not print diagnostic information in case of a write failure.
-        Returns True if OK, False if an error.
+
+        :param addr: I2C device address in the range [0, 127]
+        :type addr: int
+
+        :param data: The data to write. A bytearray with 0 to 256 bytes.
+            If ``data`` is empty, the implementation should still perform the write operation
+            but with zero bytes. This is used for I2C scanning.
+        :type data: int
+
+        :param silent: If True, do not print diagnostic information in case of a write failure.
+        :type silent: bool
+
+        :returns: True if OK, False if an error.
+        :rtype: bool
         """
         assert False, f"Class {self.__class__} does not implement write()"
 
@@ -22,16 +32,26 @@ class GreenPakI2cInterface:
         self, addr: int, byte_count: int, silent: bool = False
     ) -> bytearray | None:
         """Read the given number of bytes from the I2C device with given address.
-        addr: i2c device address in the range [0, 127]
-        byte_count: number of bytes to read in the range [0, 256]
-        silent: if True, do not print diagnostic information in case of a read failure.
-        Returns a bytearray of len count with the bytes read or None if an error.
+
+        :param addr: I2C device address in the range [0, 127]
+        :type addr: int
+
+        :param byte_count: The number of bytes to read. Should be in the range [0, 256]. If
+            byte_count is zero, the implementation should still perform the read operation
+            but with zero bytes. This is used for I2C scanning.
+        :type byte_count: int
+
+        :param silent: If True, do not print diagnostic information in case of a read failure.
+        :type silent: bool
+
+        :returns: The bytes read or None if an error.
+        :rtype: bytearray
         """
-        assert False, f"Class {self.__class__} does not implement write()"
+        assert False, f"Class {self.__class__} does not implement read()"
 
 
 class GreenPakI2cAdapter(GreenPakI2cInterface):
-    """A greenpak I2C driver I2C Adapter board."""
+    """A GreenPakI2cInterface implementation for I2C Adapter boards."""
 
     def __init__(self, port):
         self.__i2c: I2cAdapter = I2cAdapter(port)
@@ -46,7 +66,7 @@ class GreenPakI2cAdapter(GreenPakI2cInterface):
 
 
 class GreenPakI2cDriver(GreenPakI2cInterface):
-    """A greenpak I2C driver for the I2C Driver board."""
+    """A GreenPakI2cInterface implementation for I2C Adapter boards."""
 
     def __init__(self, port):
         self.__i2c: I2CDriver = I2CDriver(port, reset=True)
