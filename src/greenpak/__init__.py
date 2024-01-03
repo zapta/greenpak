@@ -11,12 +11,8 @@ from dataclasses import dataclass
 import time
 import re
 
-# TODO: Examine transactions with the logic analyzer and make sure we don't make extra operation such as reads.
-# TODO: Handle and verify device type bits.
-# TODO: Add prevention of bricking or locking.
-# TODO: Add high level operation such as setting the I2C address.
 # TODO: Add a more graceful handling of errors.
-# TODO: Add a file with the main() of the command line tool.
+# TODO: Add a file with the main() of the command line tool to program, etc.
 
 
 @dataclass(frozen=True)
