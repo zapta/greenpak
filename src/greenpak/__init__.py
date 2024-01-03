@@ -14,7 +14,6 @@ import re
 # TODO: Add a more graceful handling of errors.
 # TODO: Add a file with the main() of the command line tool to program, etc.
 
-
 @dataclass(frozen=True)
 class _DeviceInfo:
     """Descriptor of a GreenPak device."""
@@ -213,7 +212,9 @@ class GreenpakDriver(GreenPakI2cInterface):
         self.__device_info = _SUPPORTED_DEVICES[device_type]
 
     def get_device_type(self) -> str:
-        """Returns the currently set device type.."""
+        """Returns the currently set device type. Note that this does not actually retrive the device
+        type from the device but only retrieve the attribute of this driver. As of Jan 2024, Renesas
+        did not publish the NVM bits that identified the device type."""
         return self.__device_info.type
 
     def __i2c_device_addr(
@@ -305,7 +306,7 @@ class GreenpakDriver(GreenPakI2cInterface):
 
         :param n: The number of bytes to read. Should be in the range [0, 256] and should
             not exceed the device memory limit.
-        :type b: int
+        :type n: int
 
         :returns: The bytes read.
         :rtype: bytearray
@@ -456,19 +457,70 @@ class GreenpakDriver(GreenPakI2cInterface):
                 self.__program_page(memory_space, start_page_index + i, page_data)
 
     def write_register_bytes(self, start_address: int, data: bytearray) -> None:
-        """Write a block of bytes to device's Register (RAM) space."""
+        """Write a block of bytes to device's REGISTER memory space.
+
+        The method writes the bytes to the device and asserts that the operation was
+        successful.
+        
+        :param start_address: The address of the first byte to write. Should be in the
+            range [0, 255].
+        :type start_address: int
+
+        :param data: The bytes to write. ``len(data)`` should be in the range [0, 256] and should
+            not exceed the device memory limit.
+        :type data: int
+
+        :returns: None.
+        """
         self.__write_bytes(_MemorySpace.REGISTER, start_address, data)
 
     def program_nvm_pages(self, start_page_index: int, pages_data: bytearray) -> None:
-        """Program one or more 16 bytes pages of the NVM space."""
+        """Program one or more 16 bytes pages of the NVM memory space.
+        
+        The NVM memory space is made of 16 bytes blocks call pages which are erased and 
+        updated as a whole. This methods programs one or more conescutive pages in the NVM
+        memory space of the device and asserts that the operation is successful. 
+        
+        :param start_page_index: The index of the first page that should be programmed with
+            ``data``. Should be in the range p0, 15]. For example program from byte at address
+            32, use the page index 2.
+        :type start_page_index: int
+
+        :param pages_data: The bytes to write. ``len(data)`` should be a multiple of 16.
+        :type data: int
+
+        :returns: None.
+        """   
         self.__program_pages(_MemorySpace.NVM, start_page_index, pages_data)
 
     def program_eeprom_pages(self, start_page_index: int, pages_data: bytearray) -> None:
-        """Program one or more 16 bytes pages of the EEPROM memory space."""
+        """Program one or more 16 bytes pages of the EEPROM memory space.
+        
+        The EEPROM memory space is made of 16 bytes blocks call pages which are erased and 
+        updated as a whole. This methods programs one or more conescutive pages in the NVM
+        memory space of the device and asserts that the operation is successful. 
+        
+        :param start_page_index: The index of the first page that should be programmed with
+            ``data``. Should be in the range p0, 15]. For example program from byte at address
+            32, use the page index 2.
+        :type start_page_index: int
+
+        :param pages_data: The bytes to write. ``len(data)`` should be a multiple of 16.
+        :type data: int
+
+        :returns: None.
+        """         
         self.__program_pages(_MemorySpace.EEPROM, start_page_index, pages_data)
 
     def reset_device(self) -> None:
-        """Reset the device, reloading its configuration from the NVM to the REGISTER space."""
+        """Reset the device.
+        
+        Sends a reset command to the device. A reset applies the NVM configuration by copying
+        it to the REGISTER spates and brings the device to initial state. Use it after programming
+        the NVM to apply the new configuration. The method asserts that the operation was successful
+
+        :returns: None.
+        """
         # Set register bit 1601 to reset the device.
         self.write_register_bytes(0xC8, bytearray([0x02]))
         # Allow the operation to complete.
@@ -476,7 +528,20 @@ class GreenpakDriver(GreenPakI2cInterface):
         time.sleep(0.1)
 
     def scan_greenpak_device(self, control_code: int) -> bool:
-        """Given a device control code, test if it seems to exist on the I2C bus."""
+        """Test if a GreenPak device exists.
+        
+        GreenPak devices are identified by their 4 bits 'cotrol code' which derive the 
+        I2C addresses that they occupy on the I2C bus. This method tests if a GreenPak
+        device of a given code exists on the I2C bus. To qualify, all the 4 I2C address
+        that are derived from this control code need to respond to I2C operations. 
+
+        :param control_code: The control code of the GreenPak device to test. Should 
+           be in the range [0, 15].
+        :type control_code: int
+
+        :returns: True if the device was found, False otherwise.
+        :rtype: bool
+        """
         assert 0 <= control_code <= 15
         ok = True
         # All three memory spaces need to be present.
@@ -486,7 +551,14 @@ class GreenpakDriver(GreenPakI2cInterface):
         return ok
 
     def scan_greenpak_devices(self) -> None:
-        """Scans the I2C bus and return a list of control codes of candidate GreenPak devices on the bus."""
+        """Scans the I2C bus for GreenPak devices.
+        
+        Scans each of the possible device control codes and returns list of control codes
+        of devices that were found on the I2C bus.
+
+        :returns: A sorted list with the control codes for which ``scan_greenpak_device`` returned True.
+        :rtype: List[int]
+        """
         result = []
         for control_code in range(16):
             if self.scan_greenpak_device(control_code):

@@ -1,8 +1,10 @@
 #!/bin/bash
 
-#cp ../firmware/platformio/src/__init__.py /c/Users/user/AppData/Local/Programs/Python/Python312/Lib/site-packages/i2c_adapter/__init__.py
+cp ../src/greenpak/__init__.py /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/__init__.py
+cp ../src/greenpak/drivers.py /Library/Frameworks/Python.framework/Versions/3.12/lib/python3.12/site-packages/drivers.py
 
-./make.bat html
+#./make.bat html
+make html
 
 
 
