@@ -27,6 +27,10 @@ TBD
 Examples
 ========
 
+
+Programming a GreenPak device in circuit. Upon reset, the GreenPak device loads the
+new configuration from its NVM memory.
+
 .. code-block:: python
   :linenos:
 
@@ -43,16 +47,51 @@ Examples
   print("Programming the NVM.")
   gp_driver.program_nvm_pages(0, data)
 
-  print ("Reading the NVM.")
-  data = gp_driver.read_nvm_bytes(0, 256)
-  gp.hex_dump(data)
-
   print("Resetting the device.")
   gp_driver.reset_device()
 
-  Scan the I2C bus for devices:
 
-|
+Loading the configuration from the NVM space of a GreenPak device and writing it
+to a file. This requires the device to be non locked.
+
+.. code-block:: python
+  :linenos:
+
+  import greenpak as gp
+
+  print("Connecting.")
+  i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "COM17")
+  gp_driver = gp.GreenpakDriver(i2c_driver, device="SLG46826", control_code=0b0001)
+
+  print ("\nReading the NVM.")
+  data = gp_driver.read_nvm_bytes(0, 256)
+  gp.hex_dump(data)
+
+  print ("\nWriting to a file.")
+  gp.write_config_file("_output_file.txt", data)
+
+
+Scanning for I2C devices vs scanning for GreenPak devices. Each GreenPak devices appear at
+four consecutive I2C addresses.
+
+.. code-block:: python
+  :linenos:
+
+  import greenpak as gp
+
+  # Scan for I2C devices, printing their addresses.
+  i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
+  for addr in range(0, 128):
+      if i2c_driver.write(addr, bytearray(), silent=True):
+          print(f"* I2C device at address 0x{addr:02x}")
+
+
+  # Scan for GreenPak devices, printing their control codes. Each GreenPak devices
+  # occupies 4 consecutive I2C addresses, one for each of its memory spaces.
+  print("\nScanning:")
+  for control_code in gp_driver.scan_greenpak_devices():
+      print(f"* Potential GreenPak device at control code 0x{control_code:02x}")
+
 
 Installation
 ================

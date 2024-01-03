@@ -6,7 +6,7 @@ from i2cdriver import I2CDriver
 from typing import override
 
 
-class GreenPakI2cDriver:
+class GreenPakI2cInterface:
     """GreenPak compatible I2C driver."""
 
     def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
@@ -30,7 +30,7 @@ class GreenPakI2cDriver:
         assert False, f"Class {self.__class__} does not implement write()"
 
 
-class GreenPakI2cAdapter(GreenPakI2cDriver):
+class GreenPakI2cAdapter(GreenPakI2cInterface):
     """A greenpak I2C driver I2C Adapter board."""
 
     def __init__(self, port):
@@ -45,7 +45,7 @@ class GreenPakI2cAdapter(GreenPakI2cDriver):
         return self.__i2c.read(addr, byte_count, silent=silent)
 
 
-class GreenPakI2cDriver(GreenPakI2cDriver):
+class GreenPakI2cDriver(GreenPakI2cInterface):
     """A greenpak I2C driver for the I2C Driver board."""
 
     def __init__(self, port):

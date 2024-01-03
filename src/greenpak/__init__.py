@@ -4,7 +4,7 @@
 # https://www.renesas.com/us/en/document/mat/system-programming-guide-slg468246?r=1572991
 # https://www.renesas.com/us/en/document/mat/slg47004-system-programming-guide?r=1572991
 
-from greenpak.drivers import GreenPakI2cDriver
+from greenpak.drivers import GreenPakI2cInterface
 from enum import Enum
 from typing import Optional, List, Tuple, Set
 from dataclasses import dataclass
@@ -12,31 +12,30 @@ import time
 import re
 
 # TODO: Examine transactions with the logic analyzer and make sure we don't make extra operation such as reads.
-# TODO: Handle and verify device ids.
+# TODO: Handle and verify device type bits.
 # TODO: Add prevention of bricking or locking.
 # TODO: Add high level operation such as setting the I2C address.
-# TODO: Convert the print messages to log messages.
 # TODO: Add a more graceful handling of errors.
 # TODO: Add a file with the main() of the command line tool.
 
 
 @dataclass(frozen=True)
-class DeviceInfo:
+class _DeviceInfo:
     """Descriptor of a GreenPak device."""
 
-    name: str
+    type: str
     ro_nvm_pages: List[int]
     erase_mask: int
 
     def assert_valid(self):
         """Assert that the product passes sanity check."""
-        assert isinstance(self.name, str)
-        assert len(self.name) > 0
+        assert isinstance(self.type, str)
+        assert len(self.type) > 0
         assert issubclass(self.ro_nvm_pages, list)
         assert len(set(self.ro_nvm_pages)) == len(self.ro_nvm_pages), "Duplicate pages"
-        for page_id in self.ro_nvm_pages:
-            assert isinstance(self.page_id, int)
-            assert 0 <= page_id <= 15
+        for page_index in self.ro_nvm_pages:
+            assert isinstance(page_index, int)
+            assert 0 <= page_index <= 15
         assert isinstance(self.erase_mask, int)
         assert 0 <= self.erase_mask <= 255
         assert (self.erase_mask & 0b00011111) == 0
@@ -44,29 +43,39 @@ class DeviceInfo:
 
 _SUPPORTED_DEVICES = dict(
     [
-        (d.name, d)
+        (d.type, d)
         for d in [
-            DeviceInfo("SLG46824", [15], 0b10000000),
-            DeviceInfo("SLG46826", [15], 0b10000000),
-            DeviceInfo("SLG46827", [15], 0b10000000),
-            DeviceInfo("SLG47004", [8, 15], 0b11000000),
+            _DeviceInfo("SLG46824", [15], 0b10000000),
+            _DeviceInfo("SLG46826", [15], 0b10000000),
+            _DeviceInfo("SLG46827", [15], 0b10000000),
+            _DeviceInfo("SLG47004", [8, 15], 0b11000000),
         ]
     ]
 )
 
 
 class _MemorySpace(Enum):
-    """The three memory spaces of GreenPAKS."""
-
+    """The four memory spaces of a GreenPak."""
     REGISTER = 1
     NVM = 2
     EEPROM = 3
+    UNUSED = 4
 
+def read_config_file(file_path: str) -> bytearray:
+    """Read a GreenPak SPLD config file.
 
-def read_bits_file(file_name: str) -> bytearray:
-    """Read an auto generated bit file and return as an array of 256 bytes"""
+    Reads the config file, converts to configuration bytes, and asserts that there were no errors.
+    Config files are text files with the values of the GreenPak configuration bits. These are the
+    output files of the Renesas GreenPAK Designer.
+
+    :param file_path: Path to the file to read.
+    :type file_path: str
+
+    :returns: The configuration bits as a bytearray of 256 bytes, in the same representation as the GreenPak's NVM memory.
+    :rtype: bytearray
+    """
     result = bytearray()
-    f = open(file_name, "r")
+    f = open(file_path, "r")
     first_line = True
     bits_read = 0
     byte_value = 0
@@ -96,20 +105,46 @@ def read_bits_file(file_name: str) -> bytearray:
     return result
 
 
-def write_bits_file(file_name: str, data: bytearray) -> None:
-    """Write a 256 bytes GP configuration as a bits file."""
+def write_config_file(file_name: str, data: bytearray | bytes) -> None:
+    """Write a GreenPak SPLD config file.
+
+    Writes the given configuration bytes, in the same representation as the GreenPak NVM memory,
+    as a GreenPak config file. Config files are text files with the values of the GreenPak
+    configuration bits. These are th output files of the Renesas GreenPAK Designer.
+
+    :param file_path: Path to the output file.
+    :type file_path: str
+
+    :param data: The configuration bytes to write. ``len(data)`` is asserted to be 256.
+    :type data: bytearray or bytes
+    """
+    assert isinstance(data, (bytearray, bytes))
     assert len(data) == 256
     with open(file_name, "w") as f:
         f.write("index\t\tvalue\t\tcomment\n")
         for i in range(len(data) * 8):
             byte_value = data[i // 8]
-            # Lease significant bit first.
+            # Bit order in file is least significant bit first.
             bit_value = (byte_value >> (i % 8)) & 0x01
             f.write(f"{i}\t\t{bit_value}\t\t//\n")
 
 
-def hex_dump(data: bytearray, start_addr: int = 0) -> None:
-    """Dump a block of bytes in hex format."""
+def hex_dump(data: bytearray | bytes, start_addr: int = 0) -> None:
+    """Print bytes in hex format.
+
+    This utility help function is useful to print binary data such
+    as GreenPak configuration bytes.
+
+    :param data: The bytes to dump.
+    :type data: bytearray or bytes
+
+    :param start_addr: Allows to assign an index other than zero to the first byte.
+    :type start_addr: int
+
+    ."""
+    assert isinstance(data, (bytearray, bytes)), type(data)
+    assert isinstance(start_addr, int)
+    assert start_addr >= 0
     end_addr = start_addr + len(data)
     row_addr = (start_addr // 16) * 16
     while row_addr < end_addr:
@@ -127,33 +162,63 @@ def hex_dump(data: bytearray, start_addr: int = 0) -> None:
         row_addr += 16
 
 
-class GreenpakDriver(GreenPakI2cDriver):
-    """Each instance controls an I2C bus with one or more GreenPAK devices."""
+class GreenpakDriver(GreenPakI2cInterface):
+    """Creates a GreenPak driver.
 
-    def __init__(self, driver: GreenPakI2cDriver, device: str, control_code):
-        """Initialize using a I2CDrivcer serial port and GreenPAK device control code.."""
-        self.__i2c: GreenPakI2cDriver = driver
-        self.set_device(device)
-        self.set_control_code(control_code)
+    :param i2c_driver: A compatible I2C driver to use to communicate with the GreenPak devices.
+    :type i2c_driver: GreenPakI2cDriver
 
-    def set_control_code(self, control_code: int) -> None:
-        """Set the GreenPAK device control code to use. Should be in [0, 15]"""
-        assert isinstance(control_code, int)
-        assert 0 <= control_code <= 15
-        self.__control_code = control_code
+    :param device_type: A string identifying the target GreenPak device, such as ``"SLG46826"``. This
+        must be one of the GreenPak devices supported by this class.
+    :type device_type: str
 
-    def get_control_code(self) -> int:
-        """Get the current GreenPAK device control code in use."""
-        return self.__control_code
+    :param device_control_code: The GreenPak device control code. This is an int in the range [0, 15] that
+        identifies the device on the I2C bus. The I2C addresses that the device occupies are derived from
+        this control code.
+    :type device_control_code: int.
+    """
 
-    def set_device(self, device: str) -> None:
-        """Set device type. device string should be one of the supported devices."""
-        assert isinstance(device, str)
-        self.__device_info = _SUPPORTED_DEVICES[device]
+    def __init__(
+        self, i2c_driver: GreenPakI2cInterface, device_type: str, device_control_code
+    ):
+        "Constructor."
+        assert isinstance(i2c_driver, GreenPakI2cInterface), type(i2c_driver)
+        assert device_type in _SUPPORTED_DEVICES
+        assert isinstance(device_control_code, int)
+        assert 0 <= device_control_code <= 15
+        self.__i2c: GreenPakI2cDriver = i2c_driver
+        self.set_device_type(device_type)
+        self.set_device_control_code(device_control_code)
 
-    def get_device(self) -> str:
-        """Return current device."""
-        return self.__device_info.name
+    def set_device_control_code(self, device_control_code: int) -> None:
+        """Sets the control code of the target GreenPAK device.
+
+        :param device_control_code: The GreenPak device control code to use. This is an int in the range [0, 15] that
+            identifies the device on the I2C bus. The I2C addresses that the device occupies are derived from
+            this control code.
+        :type device_control_code: int.
+        """
+        assert isinstance(device_control_code, int)
+        assert 0 <= device_control_code <= 15
+        self.__device_control_code = device_control_code
+
+    def get_device_control_code(self) -> int:
+        """Returns the currently set device control code."""
+        return self.__device_control_code
+
+    def set_device_type(self, device_type: str) -> None:
+        """Set target device type.
+
+        :param device_type: A string identifying the target GreenPak device, such as ``"SLG46826"``. This
+            must be one of the GreenPak devices supported by this class.
+        :type device_type: str
+        """
+        assert isinstance(device_type, str)
+        self.__device_info = _SUPPORTED_DEVICES[device_type]
+
+    def get_device_type(self) -> str:
+        """Returns the currently set device type.."""
+        return self.__device_info.type
 
     def __i2c_device_addr(
         self, memory_space: _MemorySpace, control_code: int = None
@@ -163,14 +228,16 @@ class GreenpakDriver(GreenPakI2cDriver):
             _MemorySpace.REGISTER,
             _MemorySpace.NVM,
             _MemorySpace.EEPROM,
+            _MemorySpace.UNUSED,
         )
         if control_code is None:
-            control_code = self.__control_code
+            control_code = self.__device_control_code
         assert 0 <= control_code << 15
         memory_space_table = {
             _MemorySpace.REGISTER: 0b000,
             _MemorySpace.NVM: 0b010,
             _MemorySpace.EEPROM: 0b011,
+            _MemorySpace.UNUSED: 0b100
         }
         device_i2c_addr = control_code << 3 | memory_space_table[memory_space]
         assert 0 <= device_i2c_addr <= 127
@@ -179,8 +246,7 @@ class GreenpakDriver(GreenPakI2cDriver):
     def __read_bytes(
         self, memory_space: _MemorySpace, start_address: int, n: int
     ) -> bytearray:
-        """An internal method to read a arbitrary block of bytes from a device's memory space."""
-        # Sanity checks
+        """Read a block of bytes from the given memory space."""
         assert memory_space in (
             _MemorySpace.REGISTER,
             _MemorySpace.NVM,
@@ -203,29 +269,60 @@ class GreenpakDriver(GreenPakI2cDriver):
         return resp_bytes
 
     def read_register_bytes(self, start_address: int, n: int) -> bytearray:
-        """Read an arbitrary block of bytes from device's REGISTER memory space."""
+        """Read a memory block from the REGISTER memory space.
+
+        :param start_address: The address of the first byte to read. Should be in the
+            range [0, 255].
+        :type start_address: int
+
+        :param n: The number of bytes to read. Should be in the range [0, 256] and should
+            not exceed the device memory limit.
+        :type b: int
+
+        :returns: The bytes read.
+        :rtype: bytearray
+        """
         return self.__read_bytes(_MemorySpace.REGISTER, start_address, n)
 
     def read_nvm_bytes(self, start_address: int, n: int) -> bytearray:
-        """Read an arbitrary block of bytes from device's NVM memory space."""
+        """Read an arbitrary block of bytes from device's NVM memory space.
+
+        :param start_address: The address of the first byte to read. Should be in the
+            range [0, 255].
+        :type start_address: int
+
+        :param n: The number of bytes to read. Should be in the range [0, 256] and should
+            not exceed the device memory limit.
+        :type b: int
+
+        :returns: The bytes read.
+        :rtype: bytearray
+        """
         return self.__read_bytes(_MemorySpace.NVM, start_address, n)
 
     def read_eeprom_bytes(self, start_address: int, n: int) -> bytearray:
-        """Read an arbitrary block of bytes from device's EEPROM memory space."""
+        """Read an arbitrary block of bytes from device's EEPROM memory space.
+
+        :param start_address: The address of the first byte to read. Should be in the
+            range [0, 255].
+        :type start_address: int
+
+        :param n: The number of bytes to read. Should be in the range [0, 256] and should
+            not exceed the device memory limit.
+        :type b: int
+
+        :returns: The bytes read.
+        :rtype: bytearray
+        """
         return self.__read_bytes(_MemorySpace.EEPROM, start_address, n)
 
-    def is_page_writeable(self, memory_space: MemoryError, page_id: int) -> bool:
-        """Returns true if the page is writable by the user."""
-        assert memory_space in (
-            _MemorySpace.REGISTER,
-            _MemorySpace.NVM,
-            _MemorySpace.EEPROM,
-        )
-        assert 0 <= page_id <= 15
-        is_read_only = (memory_space == _MemorySpace.NVM) and (
-            page_id in self.__device_info.ro_nvm_pages
-        )
-        return not is_read_only
+    def __is_page_writeable(self, memory_space: _MemorySpace, page_index: int) -> bool:
+        """Returns true if the page is writable by the user. """
+        assert memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM), memory_space
+        assert isinstance(page_index, int)
+        assert 0 <= page_index <= 15
+        read_only =  (memory_space ==_MemorySpace.NVM) and  page_index in self.__device_info.ro_nvm_pages
+        return not read_only
 
     def __write_bytes(
         self, memory_space: _MemorySpace, start_address: int, data: bytearray
@@ -248,6 +345,7 @@ class GreenpakDriver(GreenPakI2cDriver):
         if memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM):
             assert start_address % 16 == 0
             assert n == 16
+            assert self.__is_page_writeable(memory_space, start_address // 16)
 
         # Construct the device i2c address
         device_i2c_addr = self.__i2c_device_addr(memory_space)
@@ -261,30 +359,32 @@ class GreenpakDriver(GreenPakI2cDriver):
         ok = self.__i2c.write(device_i2c_addr, bytearray(payload))
         assert ok
 
-    def __read_page(self, memory_space: _MemorySpace, page_id: int) -> bool:
+    def __read_page(self, memory_space: _MemorySpace, page_index: int) -> bool:
         """Read a 16 bytes page of a NVM or EEPROM memory spaces."""
         assert memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM)
-        assert 0 <= page_id <= 15
+        assert 0 <= page_index <= 15
         device_i2c_addr = self.__i2c_device_addr(memory_space)
-        data = self.__read_bytes(memory_space, page_id << 4, 16)
+        data = self.__read_bytes(memory_space, page_index << 4, 16)
         assert len(data) == 16
         return data
 
-    def __erase_page(self, memory_space: _MemorySpace, page_id: int) -> None:
+    def __erase_page(self, memory_space: _MemorySpace, page_index: int) -> None:
         """Erase a 16 bytes page of NVM or EEPROM spaces to all zeros. Page must be writable"""
         assert memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM)
-        assert self.is_page_writeable(memory_space, page_id)
+        assert self.__is_page_writeable(memory_space, page_index)
 
         # Erase only if not already erased.
-        if self.__is_page_erased(memory_space, page_id):
-            print(f"Page {memory_space.name}/{page_id:02d} already erased.", flush=True)
+        if self.__is_page_erased(memory_space, page_index):
+            print(
+                f"Page {memory_space.name}/{page_index:02d} already erased.", flush=True
+            )
             return
 
         # Erase.
-        print(f"Erasing page {memory_space.name}/{page_id:02d}.", flush=True)
+        print(f"Erasing page {memory_space.name}/{page_index:02d}.", flush=True)
         # We erase by writing to the register ERSR byte, and waiting.
         space_mask = {_MemorySpace.NVM: 0x00, _MemorySpace.EEPROM: 0x10}[memory_space]
-        erase_mask = self.__device_info.erase_mask | space_mask | page_id
+        erase_mask = self.__device_info.erase_mask | space_mask | page_index
         # TODO: Find a cleaner solution for the errata's workaround.
         self.write_register_bytes(0xE3, bytearray([erase_mask]))
         # Allow the operation to complete. Datasheet says 20ms max.
@@ -296,102 +396,103 @@ class GreenpakDriver(GreenPakI2cDriver):
         device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
         self.__i2c.write(device_i2c_addr, bytearray([0]), silent=True)
 
-
-
         # Verify that the page is all zeros.
-        assert self.__is_page_erased(memory_space, page_id)
+        assert self.__is_page_erased(memory_space, page_index)
 
-    def __is_page_erased(self, memory_space: _MemorySpace, page_id: int) -> bool:
+    def __is_page_erased(self, memory_space: _MemorySpace, page_index: int) -> bool:
         """Returns true if all 16 bytes of given MVM or EEPROM page are zero.
         Page must be writable..
         """
         assert memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM)
-        assert self.is_page_writeable(memory_space, page_id)
+        assert self.__is_page_writeable(memory_space, page_index)
 
-        data = self.__read_page(memory_space, page_id)
+        data = self.__read_page(memory_space, page_index)
         return all(val == 0 for val in data)
 
     def __program_page(
-        self, memory_space: _MemorySpace, page_id: int, page_data: bytearray
+        self, memory_space: _MemorySpace, page_index: int, page_data: bytearray
     ) -> None:
         """Program a NVM or EEPROM 16 bytes page. Page must be writeable."""
         assert memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM)
-        assert self.is_page_writeable(memory_space, page_id)
+        assert self.__is_page_writeable(memory_space, page_index)
         assert len(page_data) == 16
 
         # Do nothing if the page already has the desired value.
-        old_data = self.__read_page(memory_space, page_id)
+        old_data = self.__read_page(memory_space, page_index)
         if old_data == page_data:
-            print(f"Page {memory_space.name}/{page_id:02d} no change.", flush=True)
+            print(f"Page {memory_space.name}/{page_index:02d} no change.", flush=True)
             return
 
         # Erase the page to all zeros.
-        self.__erase_page(memory_space, page_id)
+        self.__erase_page(memory_space, page_index)
 
         # Write the new page data.
-        print(f"Writing page {memory_space.name}/{page_id:02d}.", flush=True)
-        self.__write_bytes(memory_space, page_id << 4, page_data)
+        print(f"Writing page {memory_space.name}/{page_index:02d}.", flush=True)
+        self.__write_bytes(memory_space, page_index << 4, page_data)
         # Allow the operation to complete. Datasheet says 20ms max.
         time.sleep(0.025)
 
         # Read and verify the page's content.
-        actual_page_data = self.__read_page(memory_space, page_id)
+        actual_page_data = self.__read_page(memory_space, page_index)
         assert actual_page_data == page_data
 
     def __program_pages(
-        self, memory_space: _MemorySpace, start_page_id: int, pages_data: bytearray
+        self, memory_space: _MemorySpace, start_page_index: int, pages_data: bytearray
     ) -> None:
         """Program one or mage 16 bytes pages of the NVM or EEPROM spaces."""
         assert memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM)
-        assert 0 <= start_page_id <= 15
+        assert 0 <= start_page_index <= 15
         assert 1 < len(pages_data)
         assert (len(pages_data) % 16) == 0
-        assert (start_page_id << 4) + len(pages_data) <= 256
+        assert (start_page_index << 4) + len(pages_data) <= 256
 
         num_pages = len(pages_data) // 16
         assert 0 < num_pages
-        assert start_page_id + num_pages <= 16
+        assert start_page_index + num_pages <= 16
         for i in range(0, num_pages):
-            if not self.is_page_writeable(memory_space, i):
+            if not self.__is_page_writeable(memory_space, i):
                 print(
                     f"Page {memory_space.name}/{i} a read only page, skipping.",
                     flush=True,
                 )
             else:
                 page_data = pages_data[i << 4 : (i + 1) << 4]
-                self.__program_page(memory_space, start_page_id + i, page_data)
+                self.__program_page(memory_space, start_page_index + i, page_data)
 
     def write_register_bytes(self, start_address: int, data: bytearray) -> None:
         """Write a block of bytes to device's Register (RAM) space."""
         self.__write_bytes(_MemorySpace.REGISTER, start_address, data)
 
-    def program_nvm_pages(self, start_page_id: int, pages_data: bytearray) -> None:
-        """Program one or mage 16 bytes pages of the NVM space."""
-        self.__program_pages(_MemorySpace.NVM, start_page_id, pages_data)
+    def program_nvm_pages(self, start_page_index: int, pages_data: bytearray) -> None:
+        """Program one or more 16 bytes pages of the NVM space."""
+        self.__program_pages(_MemorySpace.NVM, start_page_index, pages_data)
 
-    def program_eeprom_pages(self, start_page_id: int, pages_data: bytearray) -> None:
-        """Program one or mage 16 bytes pages of the EEPROM space."""
-        self.__program_pages(_MemorySpace.EEPROM, start_page_id, pages_data)
+    def program_eeprom_pages(self, start_page_index: int, pages_data: bytearray) -> None:
+        """Program one or more 16 bytes pages of the EEPROM memory space."""
+        self.__program_pages(_MemorySpace.EEPROM, start_page_index, pages_data)
 
     def reset_device(self) -> None:
-        """Reset the device, loading the NVM to the REGISTER"""
+        """Reset the device, reloading its configuration from the NVM to the REGISTER space."""
         # Set register bit 1601 to reset the device.
         self.write_register_bytes(0xC8, bytearray([0x02]))
         # Allow the operation to complete.
         # TODO: Check with the datasheet what time period to use here.
         time.sleep(0.1)
 
-    def scan_device(self, control_code: int) -> bool:
-        """Test if a device exists at given control_code."""
+    def scan_greenpak_device(self, control_code: int) -> bool:
+        """Given a device control code, test if it seems to exist on the I2C bus."""
         assert 0 <= control_code <= 15
-        device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER, control_code)
-        ok = self.__i2c.write(device_i2c_addr, bytearray([0]), silent=True)
+        ok = True
+        # All three memory spaces need to be present.
+        for memory_space in (_MemorySpace.REGISTER, _MemorySpace.NVM, _MemorySpace.EEPROM, _MemorySpace.UNUSED):   
+            device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER, control_code)
+            ok = ok and self.__i2c.write(device_i2c_addr, bytearray([]), silent=True)
         return ok
 
-    def scan_devices(self):
-        """Find control_codes with responding devices."""
+    def scan_greenpak_devices(self) -> None:
+        """Scans the I2C bus and return a list of control codes of candidate GreenPak devices on the bus."""
         result = []
         for control_code in range(16):
-            if self.scan_device(control_code):
+            if self.scan_greenpak_device(control_code):
                 result.append(control_code)
         return result

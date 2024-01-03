@@ -8,6 +8,7 @@ As of December 2023, the package supports the following USB to I2C interfaces an
 * [I2C Adapter](https://pypi.org/project/i2c-adapter/) (four variants, including a bare Raspberry Pico.)
 
 Sample usage using an [I2C Adapter](https://pypi.org/project/i2c-adapter):
+
 ```python
 import greenpak as gp
 
@@ -22,10 +23,9 @@ gp.hex_dump(data)
 print("Programming the NVM.")
 gp_driver.program_nvm_pages(0, data)
 
-print ("Reading the NVM.")
-data = gp_driver.read_nvm_bytes(0, 256)
-gp.hex_dump(data)
-
 print("Resetting the device.")
 gp_driver.reset_device()
 ```
+
+<br>
+For full documentation see <https://greenpak.readthedocs.io/en/latest/>
