@@ -1,5 +1,4 @@
-# I2C driver wrappers for various I2C controllers.
-
+"""I2C drivers for the ``greenpak`` package."""
 
 from i2c_adapter import I2cAdapter
 from i2cdriver import I2CDriver
