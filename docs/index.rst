@@ -16,13 +16,27 @@ The package supports all USB to I2C adapters that are supported by the following
 python drivers and support for new drivers can be easily added.
 
 * `i2c_adapter <https://pypi.org/project/i2c-adapter/>`_
-* `i2cdriver <https://pypi.org/project/i2cdriver/>`_ 
+* `i2cdriver <https://i2cdriver.com/>`_ 
+
+|
 
 Wiring
 ======
 
-TBD
+:Important:
+  Do not exceed the max voltages of the I2C adapter and the GreenPak device(s). If necessary,
+  use I2C level shifter to adapt the SDA/SCL signal level.
 
+.. csv-table:: 
+   :header: "I2C Adapter pin", "GreenPak pin", "Comments"
+   :widths: 15, 15, 50
+
+   "GND", "GND", "Common ground"
+   "VCC", "VDD, VDD2", "Optional, if circuit is not self powered."
+   "SDA", "SDA", "I2C data line. Should have a pullup resistor."
+   "SCL", "SCL", "I2C clock line. Should have a pullup resistor."
+
+|
 
 Examples
 ========
@@ -92,6 +106,7 @@ four consecutive I2C addresses.
   for control_code in gp_driver.scan_greenpak_devices():
       print(f"* Potential GreenPak device at control code 0x{control_code:02x}")
 
+|
 
 Installation
 ================
