@@ -28,4 +28,5 @@ gp_driver.reset_device()
 ```
 
 <br>
-For full documentation see <https://greenpak.readthedocs.io/en/latest/>
+
+For full documentation see https://greenpak.readthedocs.io/en/latest

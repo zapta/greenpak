@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "greenpak"
-version = "0.0.17"
+version = "0.0.18"
 authors = [
   { name="Zapta", email="zapta@zapta.com" },
 ]
@@ -44,5 +44,6 @@ exclude = [
 
 [project.urls]
 "Homepage" = "https://github.com/zapta/greenpak"
+"Documentation" = "https://greenpak.readthedocs.io/en/latest/"
 "Bug Tracker" = "https://github.com/zapta/greenpak/issues"
 
