@@ -106,6 +106,40 @@ four consecutive I2C addresses.
   for control_code in gp_driver.scan_greenpak_devices():
       print(f"* Potential GreenPak device at control code 0x{control_code:02x}")
 
+
+Initial in-circuit programming of three factory reset GreenPak devices, one of type
+SLG47004 and two of type SLG46826. This is an **experimental** example that may requires
+some tweaks.
+
+.. code-block:: python
+  :linenos:
+
+  import greenpak as gp
+
+  # Initially all three devices respond to control code 1.
+  i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
+  gp_driver = gp.GreenpakDriver(i2c_driver, device="SLG46826", control_code=0b0001)
+  assert gp_driver.scan_greenpak_device(0b0001)
+  
+  # Init the control codes devices of each potential type. We assume that the 
+  # devices are wired with two control codes pins.
+  gp_driver.set_device_type("SLG47004")
+  gp_driver.program_control_code("01XX")
+
+  gp_driver.set_device_type("SLG46826")
+  gp_driver.program_control_code("01XX")
+
+  # The three devices should be at designated control codes. We assume that there
+  # input pins are wired as 0b00, 0b01, 0b10 respectivly.
+  assert not gp_driver.scan_greenpak_device(0b0001)  # No more at default control code
+  assert gp_driver.scan_greenpak_device(0b0100)  # Device 1
+  assert gp_driver.scan_greenpak_device(0b0101)  # Device 2
+  assert gp_driver.scan_greenpak_device(0b0110)  # Device 3
+
+  # At this point the devices are at their designated addresses and can be programmed
+  # as usual. The programmed configuration of each device should maintain its
+  # control code.
+  
 |
 
 Installation

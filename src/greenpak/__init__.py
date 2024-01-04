@@ -14,19 +14,42 @@ import re
 # TODO: Add a more graceful handling of errors.
 # TODO: Add a file with the main() of the command line tool to program, etc.
 
+# The byte that is used to trigger the erase page command.
+_ERASE_BYTE_ADDR: int = 0xE3
+
+# Default values of the control code NVM page 0xCA of the SLG46824, SLG46826, SLG46827.
+# The accutal control code value is patched into it at rumtime.
+_ADDR_PAGE_DEFAULT1 = bytes(
+    [0x00, 0x01, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00]
+    + [0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00]
+)
+
+# Same as above but for page 0x7f of the SLG47004.
+_ADDR_PAGE_DEFAULT2 = bytes(
+    [0x2F, 0x2F, 0x08, 0x00, 0x40, 0x40, 0x04, 0x00]
+    + [0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01]
+)
+
+
 @dataclass(frozen=True)
 class _DeviceInfo:
     """Descriptor of a GreenPak device."""
 
+    # The device type id. E.e. "SLG46826".
     type: str
     ro_nvm_pages: List[int]
+    # The mask to trigger the erase command.
     erase_mask: int
+    # The byte where the control code is set.
+    control_code_addr: int
+    # The default page data to use when programming the device control code.
+    control_code_default_page: bytes
 
     def assert_valid(self):
         """Assert that the product passes sanity check."""
         assert isinstance(self.type, str)
         assert len(self.type) > 0
-        assert issubclass(self.ro_nvm_pages, list)
+        assert isinstance(self.ro_nvm_pages, list)
         assert len(set(self.ro_nvm_pages)) == len(self.ro_nvm_pages), "Duplicate pages"
         for page_index in self.ro_nvm_pages:
             assert isinstance(page_index, int)
@@ -34,27 +57,36 @@ class _DeviceInfo:
         assert isinstance(self.erase_mask, int)
         assert 0 <= self.erase_mask <= 255
         assert (self.erase_mask & 0b00011111) == 0
+        assert isinstance(self.control_code_addr, int)
+        assert 0 <= self.control_code_addr < 256
+        assert isinstance(self.control_code_default_page, bytes)
+        assert len(self.control_code_default_page) == 16
 
 
 _SUPPORTED_DEVICES = dict(
     [
         (d.type, d)
         for d in [
-            _DeviceInfo("SLG46824", [15], 0b10000000),
-            _DeviceInfo("SLG46826", [15], 0b10000000),
-            _DeviceInfo("SLG46827", [15], 0b10000000),
-            _DeviceInfo("SLG47004", [8, 15], 0b11000000),
+            _DeviceInfo("SLG46824", [15], 0b10000000, 0xCA, _ADDR_PAGE_DEFAULT1),
+            _DeviceInfo("SLG46826", [15], 0b10000000, 0xCA, _ADDR_PAGE_DEFAULT1),
+            _DeviceInfo("SLG46827", [15], 0b10000000, 0xCA, _ADDR_PAGE_DEFAULT1),
+            _DeviceInfo("SLG47004", [8, 15], 0b11000000, 0x7F, _ADDR_PAGE_DEFAULT2),
         ]
     ]
 )
 
+for device_info in _SUPPORTED_DEVICES.values():
+    device_info.assert_valid()
+
 
 class _MemorySpace(Enum):
     """The four memory spaces of a GreenPak."""
+
     REGISTER = 1
     NVM = 2
     EEPROM = 3
     UNUSED = 4
+
 
 def read_config_file(file_path: str) -> bytearray:
     """Read a GreenPak SPLD config file.
@@ -234,7 +266,7 @@ class GreenpakDriver(GreenPakI2cInterface):
             _MemorySpace.REGISTER: 0b000,
             _MemorySpace.NVM: 0b010,
             _MemorySpace.EEPROM: 0b011,
-            _MemorySpace.UNUSED: 0b100
+            _MemorySpace.UNUSED: 0b100,
         }
         device_i2c_addr = control_code << 3 | memory_space_table[memory_space]
         assert 0 <= device_i2c_addr <= 127
@@ -314,11 +346,13 @@ class GreenpakDriver(GreenPakI2cInterface):
         return self.__read_bytes(_MemorySpace.EEPROM, start_address, n)
 
     def __is_page_writeable(self, memory_space: _MemorySpace, page_index: int) -> bool:
-        """Returns true if the page is writable by the user. """
+        """Returns true if the page is writable by the user."""
         assert memory_space in (_MemorySpace.NVM, _MemorySpace.EEPROM), memory_space
         assert isinstance(page_index, int)
         assert 0 <= page_index <= 15
-        read_only =  (memory_space ==_MemorySpace.NVM) and  page_index in self.__device_info.ro_nvm_pages
+        read_only = (
+            memory_space == _MemorySpace.NVM
+        ) and page_index in self.__device_info.ro_nvm_pages
         return not read_only
 
     def __write_bytes(
@@ -383,7 +417,7 @@ class GreenpakDriver(GreenPakI2cInterface):
         space_mask = {_MemorySpace.NVM: 0x00, _MemorySpace.EEPROM: 0x10}[memory_space]
         erase_mask = self.__device_info.erase_mask | space_mask | page_index
         # TODO: Find a cleaner solution for the errata's workaround.
-        self.write_register_bytes(0xE3, bytearray([erase_mask]))
+        self.write_register_bytes(_ERASE_BYTE_ADDR, bytearray([erase_mask]))
         # Allow the operation to complete. Datasheet says 20ms max.
         time.sleep(0.025)
 
@@ -461,7 +495,7 @@ class GreenpakDriver(GreenPakI2cInterface):
 
         The method writes the bytes to the device and asserts that the operation was
         successful.
-        
+
         :param start_address: The address of the first byte to write. Should be in the
             range [0, 255].
         :type start_address: int
@@ -476,11 +510,11 @@ class GreenpakDriver(GreenPakI2cInterface):
 
     def program_nvm_pages(self, start_page_index: int, pages_data: bytearray) -> None:
         """Program one or more 16 bytes pages of the NVM memory space.
-        
-        The NVM memory space is made of 16 bytes blocks call pages which are erased and 
+
+        The NVM memory space is made of 16 bytes blocks call pages which are erased and
         updated as a whole. This methods programs one or more conescutive pages in the NVM
-        memory space of the device and asserts that the operation is successful. 
-        
+        memory space of the device and asserts that the operation is successful.
+
         :param start_page_index: The index of the first page that should be programmed with
             ``data``. Should be in the range p0, 15]. For example program from byte at address
             32, use the page index 2.
@@ -490,16 +524,18 @@ class GreenpakDriver(GreenPakI2cInterface):
         :type data: int
 
         :returns: None.
-        """   
+        """
         self.__program_pages(_MemorySpace.NVM, start_page_index, pages_data)
 
-    def program_eeprom_pages(self, start_page_index: int, pages_data: bytearray) -> None:
+    def program_eeprom_pages(
+        self, start_page_index: int, pages_data: bytearray
+    ) -> None:
         """Program one or more 16 bytes pages of the EEPROM memory space.
-        
-        The EEPROM memory space is made of 16 bytes blocks call pages which are erased and 
+
+        The EEPROM memory space is made of 16 bytes blocks call pages which are erased and
         updated as a whole. This methods programs one or more conescutive pages in the NVM
-        memory space of the device and asserts that the operation is successful. 
-        
+        memory space of the device and asserts that the operation is successful.
+
         :param start_page_index: The index of the first page that should be programmed with
             ``data``. Should be in the range p0, 15]. For example program from byte at address
             32, use the page index 2.
@@ -509,12 +545,12 @@ class GreenpakDriver(GreenPakI2cInterface):
         :type data: int
 
         :returns: None.
-        """         
+        """
         self.__program_pages(_MemorySpace.EEPROM, start_page_index, pages_data)
 
     def reset_device(self) -> None:
         """Reset the device.
-        
+
         Sends a reset command to the device. A reset applies the NVM configuration by copying
         it to the REGISTER spates and brings the device to initial state. Use it after programming
         the NVM to apply the new configuration. The method asserts that the operation was successful
@@ -529,13 +565,13 @@ class GreenpakDriver(GreenPakI2cInterface):
 
     def scan_greenpak_device(self, control_code: int) -> bool:
         """Test if a GreenPak device exists.
-        
-        GreenPak devices are identified by their 4 bits 'cotrol code' which derive the 
+
+        GreenPak devices are identified by their 4 bits 'cotrol code' which derive the
         I2C addresses that they occupy on the I2C bus. This method tests if a GreenPak
         device of a given code exists on the I2C bus. To qualify, all the 4 I2C address
-        that are derived from this control code need to respond to I2C operations. 
+        that are derived from this control code need to respond to I2C operations.
 
-        :param control_code: The control code of the GreenPak device to test. Should 
+        :param control_code: The control code of the GreenPak device to test. Should
            be in the range [0, 15].
         :type control_code: int
 
@@ -545,14 +581,21 @@ class GreenpakDriver(GreenPakI2cInterface):
         assert 0 <= control_code <= 15
         ok = True
         # All three memory spaces need to be present.
-        for memory_space in (_MemorySpace.REGISTER, _MemorySpace.NVM, _MemorySpace.EEPROM, _MemorySpace.UNUSED):   
-            device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER, control_code)
+        for memory_space in (
+            _MemorySpace.REGISTER,
+            _MemorySpace.NVM,
+            _MemorySpace.EEPROM,
+            _MemorySpace.UNUSED,
+        ):
+            device_i2c_addr = self.__i2c_device_addr(
+                _MemorySpace.REGISTER, control_code
+            )
             ok = ok and self.__i2c.write(device_i2c_addr, bytearray([]), silent=True)
         return ok
 
     def scan_greenpak_devices(self) -> None:
         """Scans the I2C bus for GreenPak devices.
-        
+
         Scans each of the possible device control codes and returns list of control codes
         of devices that were found on the I2C bus.
 
@@ -564,3 +607,60 @@ class GreenpakDriver(GreenPakI2cInterface):
             if self.scan_greenpak_device(control_code):
                 result.append(control_code)
         return result
+
+    def program_control_code(self, control_code_spec: str) -> None:
+        """Program device(s) control code(s).
+
+        This is an experimental method for the initial in-circuit programming of boards
+        that have more than one GreenPak device on the same I2C bus. It is used to switch
+        the devices to their permanent I2C addresses such that they be programmed with their
+        specific configurations.
+
+        This programming is done using the current control code and device type of this
+        GreenPak driver, so make sure to set it as necessary.
+
+        CAVEAT: When programming the control code page of one device type, the same page of
+        other devices types at the same default address is also written as a side affect.
+        For this reason, after this initial disambiguation of device addresses, each device
+        should be programmed with its specific full configuraiton.
+
+        A typical initial programming includes these step:
+
+        1. Call ``set_control_code()`` to set the default GreenPak control code 0x01.
+        2. For each device type is on the bus, call ``set_device_type()`` and then call this method
+           to program the control code of all devices of that type.
+        3. Use the ``scan_greenpak_device()`` method to confirm that devices moved to their
+           permanent addresses.
+        4. Program each device with its specific configuration, using its control code and
+           device type.
+
+        :param control_code_spec: A string of length 4 where each of the chars is one of '0', '1' and 'X' that
+           controls the configuration of the 4 control bits as either '0', '1', or external from the
+           corresponding control code pin. For if the spec is "01XX", the device control code will become
+           <0, 1, CC1, CC0> where CC1, CC0 are the values of the two input pins which controls the two
+           LSB bits of the control code respectivly.
+        :type control_code_spec: True
+
+        :returns: None
+        """
+        assert isinstance(control_code_spec, str)
+        assert re.match(r"^[01X]{4}$", control_code_spec), control_code_spec
+        control_code = 0b0000
+        control_selection = 0b0000
+        for i in range(4):
+            mask = 1 << (3 - i)
+            c = control_code_spec[i]
+            if c == "1":
+                control_code |= mask
+            elif c == "X":
+                control_selection |= mask
+        control_byte = (control_selection << 4) | control_code
+        page_data = bytearray(self.__device_info.control_code_default_page)
+        page_data[self.__device_info.control_code_addr % 16] = control_byte
+        assert len(page_data) == 16
+        page_index = self.__device_info.control_code_addr // 16
+        print(
+            f"Programming control code: type={self.get_device_type()}, current_code={self.get_device_control_code()}"
+        )
+        print(f"Page={page_index}, page_data={page_data}")
+        self.program_nvm_pages(page_index, page_data),
