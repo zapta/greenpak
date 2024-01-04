@@ -13,6 +13,8 @@ import re
 
 # TODO: Add a more graceful handling of errors.
 # TODO: Add a file with the main() of the command line tool to program, etc.
+# TODO: Add data files with factory reset values of each device type. Use it to reset devices 
+#       and instead of _ADDR_PAGE_DEFAULT1
 
 # The byte that is used to trigger the erase page command.
 _ERASE_BYTE_ADDR: int = 0xE3
