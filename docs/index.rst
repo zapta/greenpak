@@ -159,7 +159,8 @@ some tweaks.
   # Here the devices are at their designated addresses and can be programmed individually.
   print("Scan after:")
   scan()
-  
+  assert not gp_driver.scan_greenpak_device(0b0001)
+
 |
 
 Installation
