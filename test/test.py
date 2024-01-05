@@ -5,6 +5,7 @@ sys.path.insert(0, os.path.abspath('../src'))
 print(f"*** sys.path: {sys.path}")
 import greenpak as gp
 import greenpak.utils as utils
+import greenpak.i2c as i2c
 
 
 #port="/dev/tty.usbmodem101"
@@ -17,7 +18,7 @@ config_file = "test_data/slg46826_blinky_slow.txt"
 
 
 print("\nConnecting.")
-i2c_driver = gp.drivers.GreenPakI2cAdapter(port = port)
+i2c_driver = i2c.GreenPakI2cAdapter(port = port)
 gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
 print("\nI2C scanning:")

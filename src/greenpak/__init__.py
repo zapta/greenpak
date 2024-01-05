@@ -63,10 +63,10 @@ _SUPPORTED_DEVICES = dict(
     [
         (d.type, d)
         for d in [
-            _DeviceInfo("SLG46824", [15], 0b10000000, 0xCA, "SLG46826_default.hex"),
+            _DeviceInfo("SLG46824", [15], 0b10000000, 0xCA, "SLG46824_default.hex"),
             _DeviceInfo("SLG46826", [15], 0b10000000, 0xCA, "SLG46826_default.hex"),
-            _DeviceInfo("SLG46827", [15], 0b10000000, 0xCA, "SLG46826_default.hex"),
-            _DeviceInfo("SLG47004", [8, 15], 0b11000000, 0x7F, "SLG46826_default.hex"),
+            _DeviceInfo("SLG46827", [15], 0b10000000, 0xCA, "SLG46827_default.hex"),
+            _DeviceInfo("SLG47004", [8, 15], 0b11000000, 0x7F, "SLG47004_default.hex"),
         ]
     ]
 )

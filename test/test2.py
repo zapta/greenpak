@@ -4,15 +4,21 @@ import os
 sys.path.insert(0, os.path.abspath('../src'))
 import greenpak as gp
 import greenpak.utils as utils
+import greenpak.i2c as i2c
 
 
-# code1 = 0b0001
+# code1 = 1
 #spec2 = "0010"
-# code2 = 0b0010
+# code2 = 2
 
-code1 = 0b0010
+#code1 = 2
+#spec2 = "0001"
+#code2 = 1
+
+code1 = 4
 spec2 = "0001"
-code2 = 0b0001
+code2 = 1
+
 
 
 
@@ -26,7 +32,7 @@ port="/dev/tty.usbmodem1101"
 
 
 print("\nConnecting.")
-i2c_driver = gp.drivers.GreenPakI2cAdapter(port = port)
+i2c_driver = i2c.GreenPakI2cAdapter(port = port)
 gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=code1)
 
 print("\nI2C scanning:")
