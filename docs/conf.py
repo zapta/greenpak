@@ -6,9 +6,9 @@
 import sys
 import os
 
-# Use local sources rather than from PIP package.
-sys.path.insert(0, os.path.abspath('../src'))
-print(f"sys.path = {sys.path}")
+# For developement only. Use local sources rather than from PIP package.
+# sys.path.insert(0, os.path.abspath('../src'))
+# print(f"sys.path = {sys.path}")
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information

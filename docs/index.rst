@@ -178,15 +178,15 @@ on your computer using pip:
 API Reference
 =============
 
-.. automodule:: greenpak
-  :members:
-  :member-order: bysource
-
-.. automodule:: greenpak.i2c
+.. automodule:: greenpak.driver
   :members:
   :member-order: bysource
 
 .. automodule:: greenpak.utils
+  :members:
+  :member-order: bysource
+
+.. automodule:: greenpak.i2c
   :members:
   :member-order: bysource
 
