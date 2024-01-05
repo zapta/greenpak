@@ -1,12 +1,10 @@
-import greenpak as gp
-import greenpak.utils as utils
-import greenpak.i2c as i2c
+from greenpak import driver, i2c, utils
 
 print("Connecting.")
 i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
-gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
+gp_driver = driver.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
-print("Loading configuration.")
+print("Loading configuration from file.")
 data = utils.read_bits_config_file("test_data/slg46826_blinky_slow.txt")
 utils.hex_dump(data)
 

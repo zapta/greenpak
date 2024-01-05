@@ -1,5 +1,4 @@
-import greenpak as gp
-import greenpak.i2c as i2c
+from greenpak import driver, i2c
 
 def scan():
   for control_code in gp_driver.scan_greenpak_devices():
@@ -10,7 +9,7 @@ def scan():
 
 # Initially all three devices respond to control code 1.
 i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
-gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
+gp_driver = driver.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
 # At this points, all the devices are at the Renesas's default control code 1.
 print("Scan before:")

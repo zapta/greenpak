@@ -50,15 +50,13 @@ new configuration from its NVM memory.
 .. code-block:: python
   :linenos:
 
-  import greenpak as gp
-  import greenpak.utils as utils
-  import greenpak.i2c as i2c
+  from greenpak import driver, i2c, utils
 
   print("Connecting.")
   i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
   gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
-  print("Loading configuration.")
+  print("Loading configuration from file.")
   data = utils.read_bits_config_file("test_data/slg46826_blinky_slow.txt")
   utils.hex_dump(data)
 
@@ -78,13 +76,11 @@ to a file. This requires the device to be non locked.
 .. code-block:: python
   :linenos:
 
-  import greenpak as gp
-  import greenpak.utils as utils
-  import greenpak.i2c as i2c
+  from greenpak import driver, i2c, utils
 
   print("Connecting.")
   i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
-  gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
+  gp_driver = driver.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
   print ("Reading the configuration from device's NVM.")
   data = gp_driver.read_nvm_bytes(0, 256)
@@ -102,11 +98,10 @@ four consecutive I2C addresses.
 .. code-block:: python
   :linenos:
 
-  import greenpak as gp
-  import greenpak.i2c as i2c
+  from greenpak import driver, i2c
 
   i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
-  gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
+  gp_driver = driver.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
   # Scan for I2C devices, printing their addresses.
   print("Scanning for I2C addresses:")
@@ -130,8 +125,7 @@ some tweaks.
 .. code-block:: python
   :linenos:
 
-  import greenpak as gp
-  import greenpak.i2c as i2c
+  from greenpak import driver, i2c
 
   def scan():
     for control_code in gp_driver.scan_greenpak_devices():
@@ -142,7 +136,7 @@ some tweaks.
 
   # Initially all three devices respond to control code 1.
   i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
-  gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
+  gp_driver = driver.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
   # At this points, all the devices are at the Renesas's default control code 1.
   print("Scan before:")

@@ -1,9 +1,7 @@
-import greenpak as gp
-import greenpak.utils as utils
-import greenpak.i2c as i2c
+from greenpak import driver, i2c
 
 i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
-gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
+gp_driver = driver.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
 # Scan for I2C devices, printing their addresses.
 print("Scanning for I2C addresses:")
