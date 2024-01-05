@@ -1,7 +1,8 @@
+* Handle the id bits of the devices and complain if trying to program a non compatible config.
 
-* Fix example after the move of __init__.py to driver.py
+* Add a function to identity a device or config by their id bits.
 
----
+------------
 
 * Update the default config files with actual reading of factory reset devices.
 
@@ -11,10 +12,6 @@
 
 * Add a function of readdressing a config. Given 256 config bytes, it sets the control code config
   based on user spec. This will allow to use the same config for multiple devices.
-
-* Handle the id bits of the devices and complain if trying to program a non compatible config.
-
-* Add a function to identity a device or config by their id bits.
 
 * Add an example that interacts with a design at runtime (read counter value, set/reset FF, etc)
 
