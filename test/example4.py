@@ -24,7 +24,6 @@ for device_type in ["SLG47004", "SLG46826"]:
         gp_driver.program_control_code("01XX")
         gp_driver.reset_device()
 
-
 # Here the devices are at their designated addresses and can be programmed individually.
 print("Scan after:")
 scan()
