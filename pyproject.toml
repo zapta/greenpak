@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
     "i2c_adapter >=0.0.4",
     "i2cdriver >=1.0.1",
+    "intelhex>=2.3.0",
 ]
 
 [tool.hatch.build.targets.sdist]

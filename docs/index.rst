@@ -41,6 +41,8 @@ Wiring
 Examples
 ========
 
+Programming a device
+--------------------
 
 Programming a GreenPak device in circuit. Upon reset, the GreenPak device loads the
 new configuration from its NVM memory.
@@ -49,14 +51,16 @@ new configuration from its NVM memory.
   :linenos:
 
   import greenpak as gp
+  import greenpak.utils as utils
+  import greenpak.i2c as i2c
 
   print("Connecting.")
-  i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "COM17")
-  gp_driver = gp.GreenpakDriver(i2c_driver, device="SLG46826", control_code=0b0001)
+  i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
+  gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
   print("Loading configuration.")
-  data = gp.read_bits_file("test_data/slg46826_blinky_fast.txt")
-  gp.hex_dump(data)
+  data = utils.read_bits_config_file("test_data/slg46826_blinky_slow.txt")
+  utils.hex_dump(data)
 
   print("Programming the NVM.")
   gp_driver.program_nvm_pages(0, data)
@@ -64,6 +68,9 @@ new configuration from its NVM memory.
   print("Resetting the device.")
   gp_driver.reset_device()
 
+  
+Reading device configuration
+----------------------------
 
 Loading the configuration from the NVM space of a GreenPak device and writing it
 to a file. This requires the device to be non locked.
@@ -72,18 +79,22 @@ to a file. This requires the device to be non locked.
   :linenos:
 
   import greenpak as gp
+  import greenpak.utils as utils
+  import greenpak.i2c as i2c
 
   print("Connecting.")
-  i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "COM17")
-  gp_driver = gp.GreenpakDriver(i2c_driver, device="SLG46826", control_code=0b0001)
+  i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
+  gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
-  print ("\nReading the NVM.")
+  print ("Reading the configuration from device's NVM.")
   data = gp_driver.read_nvm_bytes(0, 256)
-  gp.hex_dump(data)
+  utils.hex_dump(data)
 
-  print ("\nWriting to a file.")
-  gp.write_config_file("_output_file.txt", data)
+  print ("Writing configuration to a file.")
+  utils.write_hex_config_file("_output_file.hex", data)
 
+Scanning the I2C bus 
+--------------------
 
 Scanning for I2C devices vs scanning for GreenPak devices. Each GreenPak devices appear at
 four consecutive I2C addresses.
@@ -92,20 +103,25 @@ four consecutive I2C addresses.
   :linenos:
 
   import greenpak as gp
+  import greenpak.i2c as i2c
+
+  i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
+  gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
   # Scan for I2C devices, printing their addresses.
-  i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
+  print("Scanning for I2C addresses:")
   for addr in range(0, 128):
       if i2c_driver.write(addr, bytearray(), silent=True):
           print(f"* I2C device at address 0x{addr:02x}")
 
-
   # Scan for GreenPak devices, printing their control codes. Each GreenPak devices
   # occupies 4 consecutive I2C addresses, one for each of its memory spaces.
-  print("\nScanning:")
+  print("Scanning for GreenPak control codes:")
   for control_code in gp_driver.scan_greenpak_devices():
       print(f"* Potential GreenPak device at control code 0x{control_code:02x}")
 
+Assigning initial addresses
+---------------------------
 
 Initial in-circuit programming of three factory reset GreenPak devices, one of type
 SLG47004 and two of type SLG46826. This is an **experimental** example that may requires
@@ -115,35 +131,39 @@ some tweaks.
   :linenos:
 
   import greenpak as gp
+  import greenpak.i2c as i2c
+
+  def scan():
+    for control_code in gp_driver.scan_greenpak_devices():
+      print(f"* Found control code {control_code}")
+    for addr in range(0, 128):
+      if i2c_driver.write(addr, bytearray(), silent=True):
+          print(f"* Found I2C address 0x{addr:02x}")
 
   # Initially all three devices respond to control code 1.
-  i2c_driver = gp.drivers.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
-  gp_driver = gp.GreenpakDriver(i2c_driver, device="SLG46826", control_code=0b0001)
-  assert gp_driver.scan_greenpak_device(0b0001)
-  
-  # Init the control codes devices of each potential type. We assume that the 
-  # devices are wired with two control codes pins.
-  gp_driver.set_device_type("SLG47004")
-  gp_driver.program_control_code("01XX")
+  i2c_driver = i2c.GreenPakI2cAdapter(port = "/dev/tty.usbmodem1101")
+  gp_driver = gp.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=0b0001)
 
-  gp_driver.set_device_type("SLG46826")
-  gp_driver.program_control_code("01XX")
+  # At this points, all the devices are at the Renesas's default control code 1.
+  print("Scan before:")
+  scan()
 
-  # The three devices should be at designated control codes. We assume that there
-  # input pins are wired as 0b00, 0b01, 0b10 respectivly.
-  assert not gp_driver.scan_greenpak_device(0b0001)  # No more at default control code
-  assert gp_driver.scan_greenpak_device(0b0100)  # Device 1
-  assert gp_driver.scan_greenpak_device(0b0101)  # Device 2
-  assert gp_driver.scan_greenpak_device(0b0110)  # Device 3
+  # Move the devices to their permanent address. In this example we assume that each device
+  # has two control code input pins that are hard wired to a unique combination.
+  for device_type in ["SLG47004", "SLG46826"]:
+      if gp_driver.scan_greenpak_device(0b0001):
+          gp_driver.set_device_type(device_type)
+          gp_driver.program_control_code("01XX")
+          gp_driver.reset_device()
 
-  # At this point the devices are at their designated addresses and can be programmed
-  # as usual. The programmed configuration of each device should maintain its
-  # control code.
+  # Here the devices are at their designated addresses and can be programmed individually.
+  print("Scan after:")
+  scan()
   
 |
 
 Installation
-================
+=============
 
 The Python API package is available from PyPi at https://pypi.org/project/greenpak and can be installed
 on your computer using pip:
@@ -161,7 +181,11 @@ API Reference
   :members:
   :member-order: bysource
 
-.. automodule:: greenpak.drivers
+.. automodule:: greenpak.i2c
+  :members:
+  :member-order: bysource
+
+.. automodule:: greenpak.utils
   :members:
   :member-order: bysource
 

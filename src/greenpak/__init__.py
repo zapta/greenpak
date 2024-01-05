@@ -4,81 +4,72 @@
 # https://www.renesas.com/us/en/document/mat/system-programming-guide-slg468246?r=1572991
 # https://www.renesas.com/us/en/document/mat/slg47004-system-programming-guide?r=1572991
 
-from greenpak.drivers import GreenPakI2cInterface
+from greenpak.i2c import GreenPakI2cInterface
 from enum import Enum
 from typing import Optional, List, Tuple, Set
-from dataclasses import dataclass
 import time
 import re
+from importlib import resources as impresources
+from . import data_files
 
+# from intelhex import IntelHex
+import greenpak.utils as utils
+
+# TODO: Switch from bits file format to hex.
+# TODO: Add default config file to all the device types.
 # TODO: Add a more graceful handling of errors.
 # TODO: Add a file with the main() of the command line tool to program, etc.
-# TODO: Add data files with factory reset values of each device type. Use it to reset devices 
+# TODO: Add data files with factory reset values of each device type. Use it to reset devices
 #       and instead of _ADDR_PAGE_DEFAULT1
 
 # The byte that is used to trigger the erase page command.
 _ERASE_BYTE_ADDR: int = 0xE3
 
-# Default values of the control code NVM page 0xCA of the SLG46824, SLG46826, SLG46827.
-# The accutal control code value is patched into it at rumtime.
-_ADDR_PAGE_DEFAULT1 = bytes(
-    [0x00, 0x01, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00]
-    + [0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x00, 0x00]
-)
 
-# Same as above but for page 0x7f of the SLG47004.
-_ADDR_PAGE_DEFAULT2 = bytes(
-    [0x2F, 0x2F, 0x08, 0x00, 0x40, 0x40, 0x04, 0x00]
-    + [0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01]
-)
-
-
-@dataclass(frozen=True)
 class _DeviceInfo:
     """Descriptor of a GreenPak device."""
 
-    # The device type id. E.e. "SLG46826".
-    type: str
-    ro_nvm_pages: List[int]
-    # The mask to trigger the erase command.
-    erase_mask: int
-    # The byte where the control code is set.
-    control_code_addr: int
-    # The default page data to use when programming the device control code.
-    control_code_default_page: bytes
-
-    def assert_valid(self):
-        """Assert that the product passes sanity check."""
-        assert isinstance(self.type, str)
-        assert len(self.type) > 0
-        assert isinstance(self.ro_nvm_pages, list)
-        assert len(set(self.ro_nvm_pages)) == len(self.ro_nvm_pages), "Duplicate pages"
-        for page_index in self.ro_nvm_pages:
+    def __init__(
+        self,
+        type: str,
+        ro_nvm_pages: List[int],
+        erase_mask: int,
+        control_code_addr: int,
+        default_config_file_name: str,
+    ):
+        assert isinstance(type, str)
+        assert len(type) > 0
+        assert isinstance(ro_nvm_pages, list)
+        assert len(set(ro_nvm_pages)) == len(ro_nvm_pages), "Duplicate pages"
+        for page_index in ro_nvm_pages:
             assert isinstance(page_index, int)
             assert 0 <= page_index <= 15
-        assert isinstance(self.erase_mask, int)
-        assert 0 <= self.erase_mask <= 255
-        assert (self.erase_mask & 0b00011111) == 0
-        assert isinstance(self.control_code_addr, int)
-        assert 0 <= self.control_code_addr < 256
-        assert isinstance(self.control_code_default_page, bytes)
-        assert len(self.control_code_default_page) == 16
+        assert isinstance(erase_mask, int)
+        assert 0 <= erase_mask <= 255
+        assert (erase_mask & 0b00011111) == 0
+        assert isinstance(control_code_addr, int)
+        assert 0 <= control_code_addr < 256
+        assert isinstance(default_config_file_name, str)
+
+        self.type: str = type
+        self.ro_nvm_pages: List[int] = ro_nvm_pages
+        self.erase_mask: int = erase_mask
+        self.control_code_addr: int = control_code_addr
+        fname = impresources.files(data_files) / default_config_file_name
+        self.default_config: bytes = bytes(utils.read_hex_config_file(fname))
 
 
 _SUPPORTED_DEVICES = dict(
     [
         (d.type, d)
         for d in [
-            _DeviceInfo("SLG46824", [15], 0b10000000, 0xCA, _ADDR_PAGE_DEFAULT1),
-            _DeviceInfo("SLG46826", [15], 0b10000000, 0xCA, _ADDR_PAGE_DEFAULT1),
-            _DeviceInfo("SLG46827", [15], 0b10000000, 0xCA, _ADDR_PAGE_DEFAULT1),
-            _DeviceInfo("SLG47004", [8, 15], 0b11000000, 0x7F, _ADDR_PAGE_DEFAULT2),
+            _DeviceInfo("SLG46824", [15], 0b10000000, 0xCA, "SLG46826_default.hex"),
+            _DeviceInfo("SLG46826", [15], 0b10000000, 0xCA, "SLG46826_default.hex"),
+            _DeviceInfo("SLG46827", [15], 0b10000000, 0xCA, "SLG46826_default.hex"),
+            _DeviceInfo("SLG47004", [8, 15], 0b11000000, 0x7F, "SLG46826_default.hex"),
         ]
     ]
 )
-
-for device_info in _SUPPORTED_DEVICES.values():
-    device_info.assert_valid()
 
 
 class _MemorySpace(Enum):
@@ -88,107 +79,6 @@ class _MemorySpace(Enum):
     NVM = 2
     EEPROM = 3
     UNUSED = 4
-
-
-def read_config_file(file_path: str) -> bytearray:
-    """Read a GreenPak SPLD config file.
-
-    Reads the config file, converts to configuration bytes, and asserts that there were no errors.
-    Config files are text files with the values of the GreenPak configuration bits. These are the
-    output files of the Renesas GreenPAK Designer.
-
-    :param file_path: Path to the file to read.
-    :type file_path: str
-
-    :returns: The configuration bits as a bytearray of 256 bytes, in the same representation as the GreenPak's NVM memory.
-    :rtype: bytearray
-    """
-    result = bytearray()
-    f = open(file_path, "r")
-    first_line = True
-    bits_read = 0
-    byte_value = 0
-    for line in f:
-        line = line.rstrip()
-        if first_line:
-            assert re.match(r"index\s+value\s+comment", line)
-            first_line = False
-            continue
-        assert bits_read < 2048
-        m = re.match(r"^([0-9]+)\s+([0|1])\s.*", line)
-        assert m
-        bit_index = int(m.group(1))
-        bit_value = int(m.group(2))
-        assert bit_index == bits_read
-        assert bit_value in (0, 1)
-        # Least signiificant bit first
-        byte_value = (byte_value >> 1) + (bit_value << 7)
-        assert 0 <= byte_value <= 255
-        bits_read += 1
-        # Handle last bit of a byte
-        if (bits_read % 8) == 0:
-            result.append(byte_value)
-            byte_value = 0
-    assert bits_read == 2048
-    assert len(result) == 256
-    return result
-
-
-def write_config_file(file_name: str, data: bytearray | bytes) -> None:
-    """Write a GreenPak SPLD config file.
-
-    Writes the given configuration bytes, in the same representation as the GreenPak NVM memory,
-    as a GreenPak config file. Config files are text files with the values of the GreenPak
-    configuration bits. These are th output files of the Renesas GreenPAK Designer.
-
-    :param file_path: Path to the output file.
-    :type file_path: str
-
-    :param data: The configuration bytes to write. ``len(data)`` is asserted to be 256.
-    :type data: bytearray or bytes
-    """
-    assert isinstance(data, (bytearray, bytes))
-    assert len(data) == 256
-    with open(file_name, "w") as f:
-        f.write("index\t\tvalue\t\tcomment\n")
-        for i in range(len(data) * 8):
-            byte_value = data[i // 8]
-            # Bit order in file is least significant bit first.
-            bit_value = (byte_value >> (i % 8)) & 0x01
-            f.write(f"{i}\t\t{bit_value}\t\t//\n")
-
-
-def hex_dump(data: bytearray | bytes, start_addr: int = 0) -> None:
-    """Print bytes in hex format.
-
-    This utility help function is useful to print binary data such
-    as GreenPak configuration bytes.
-
-    :param data: The bytes to dump.
-    :type data: bytearray or bytes
-
-    :param start_addr: Allows to assign an index other than zero to the first byte.
-    :type start_addr: int
-
-    ."""
-    assert isinstance(data, (bytearray, bytes)), type(data)
-    assert isinstance(start_addr, int)
-    assert start_addr >= 0
-    end_addr = start_addr + len(data)
-    row_addr = (start_addr // 16) * 16
-    while row_addr < end_addr:
-        items = []
-        for i in range(16):
-            addr = row_addr + i
-            col_space = " " if i % 4 == 0 else ""
-            if addr >= end_addr:
-                break
-            if addr < start_addr:
-                items.append(f"{col_space}  ")
-            else:
-                items.append(f"{col_space}{data[addr - start_addr]:02x}")
-        print(f"{row_addr:02x}: {" ".join(items)}", flush=True)
-        row_addr += 16
 
 
 class GreenpakDriver(GreenPakI2cInterface):
@@ -215,7 +105,7 @@ class GreenpakDriver(GreenPakI2cInterface):
         assert device_type in _SUPPORTED_DEVICES
         assert isinstance(device_control_code, int)
         assert 0 <= device_control_code <= 15
-        self.__i2c: GreenPakI2cDriver = i2c_driver
+        self.__i2c: GreenPakI2cInterface = i2c_driver
         self.set_device_type(device_type)
         self.set_device_control_code(device_control_code)
 
@@ -657,10 +547,12 @@ class GreenpakDriver(GreenPakI2cInterface):
             elif c == "X":
                 control_selection |= mask
         control_byte = (control_selection << 4) | control_code
-        page_data = bytearray(self.__device_info.control_code_default_page)
+        page_index = self.__device_info.control_code_addr // 16
+        page_data = bytearray(
+            self.__device_info.default_config[page_index * 16 : (page_index + 1) * 16]
+        )
         page_data[self.__device_info.control_code_addr % 16] = control_byte
         assert len(page_data) == 16
-        page_index = self.__device_info.control_code_addr // 16
         print(
             f"Programming control code: type={self.get_device_type()}, current_code={self.get_device_control_code()}"
         )
