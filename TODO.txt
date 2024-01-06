@@ -1,16 +1,11 @@
-* Handle the id bits of the devices and complain if trying to program a non compatible config.
-
-* Add a function to identity a device or config by their id bits.
-
-------------
 
 * Update the default config files with actual reading of factory reset devices.
 
-* Add a more graceful handling of errors. Currently we assrt and exit.
+* Add a more graceful handling of errors. Currently we just assert.
 
 * Add a tool with main() which can do basic operations such as programming a device.
 
-* Add a function of readdressing a config. Given 256 config bytes, it sets the control code config
+* Add a function of re-addressing a config. Given 256 config bytes, it sets the control code config
   based on user spec. This will allow to use the same config for multiple devices.
 
 * Add an example that interacts with a design at runtime (read counter value, set/reset FF, etc)
