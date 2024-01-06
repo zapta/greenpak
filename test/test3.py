@@ -16,11 +16,12 @@ port="/dev/tty.usbmodem1101"
 #config_file = "test_data/slg46826_blinky_fast.txt"
 
 devices = ["SLG46824", "SLG46826", "SLG46827", "SLG47004"]
+#devices = ["SLG46824", "SLG46826"]
 
 for d in devices:
-    print(f"Processing {d}", flush=True)
+    #print(f"Processing {d}", flush=True)
     data = utils.read_hex_config_file(f"../src/greenpak/data_files/{d}_default.hex")
-    #  utils.write_bits_config_file(f"_{d}.txt", data)
+    utils.write_bits_config_file(f"_{d}.txt", data)
     print(f"{d} F9 = {data[0xf9]:09b}")
 
 
