@@ -448,6 +448,27 @@ class GreenpakDriver:
                 result.append(control_code)
         return result
 
+    @classmethod
+    def __control_code_config_byte(cls, control_code_spec: str) -> None:
+        """Computes a control code config byte from a control code spec."""
+        assert isinstance(control_code_spec, str)
+        assert re.match(r"^[01X]{4}$", control_code_spec), control_code_spec
+        # By default all bits are internal and zero.
+        control_byte = 0b00000000
+        # 4 LSB bits
+        # control_selection = 0b0000
+        for i in range(4):
+            # mask = 1 << (3 - i)
+            c = control_code_spec[i]
+            if c == "1":
+                # Set bit internal value to 1.
+                control_byte |= (1 << (3 - i))
+            elif c == "X":
+                # Set bit selection to external.
+                control_byte |= (1 << (7 - i))
+        return control_byte
+
+
     def program_control_code(self, control_code_spec: str) -> None:
         """Program device(s) control code(s).
 
@@ -483,18 +504,19 @@ class GreenpakDriver:
 
         :returns: None
         """
-        assert isinstance(control_code_spec, str)
-        assert re.match(r"^[01X]{4}$", control_code_spec), control_code_spec
-        control_code = 0b0000
-        control_selection = 0b0000
-        for i in range(4):
-            mask = 1 << (3 - i)
-            c = control_code_spec[i]
-            if c == "1":
-                control_code |= mask
-            elif c == "X":
-                control_selection |= mask
-        control_byte = (control_selection << 4) | control_code
+        control_byte = self.__control_code_config_byte(control_code_spec)
+        # assert isinstance(control_code_spec, str)
+        # assert re.match(r"^[01X]{4}$", control_code_spec), control_code_spec
+        # control_code = 0b0000
+        # control_selection = 0b0000
+        # for i in range(4):
+        #     mask = 1 << (3 - i)
+        #     c = control_code_spec[i]
+        #     if c == "1":
+        #         control_code |= mask
+        #     elif c == "X":
+        #         control_selection |= mask
+        # control_byte = (control_selection << 4) | control_code
         page_index = self.__device_type_descriptor.control_code_addr // 16
         page_data = bytearray(
             self.__device_type_descriptor.default_config[
@@ -507,4 +529,30 @@ class GreenpakDriver:
         #     f"Programming control code: type={self.get_device_type()}, current_code={self.get_device_control_code()}"
         # )
         # print(f"Page={page_index}, page_data={page_data}")
-        self.program_nvm_pages(page_index, page_data),
+        # self.program_nvm_pages(page_index, page_data),
+        self.__program_pages(_MemorySpace.NVM, page_index, page_data)
+
+    def adjust_control_code(self, data: bytearray, control_code_spec: str) -> None:
+        """Patch a new control code in given device configuration
+        
+        Given a device configuration and a specification of a device control code, patch
+        the configuration to have the desired control code.
+
+        Note that control code is patched according to the currently set device type and therfore 
+        it's import to have it set correctly before calling this method.
+
+        :param data: The device configuration. Asserted to have ``len(data) == 256```.
+        :type data: bytearray
+
+        :param control_code_spec: A specifcaiton of the control code. Contains exactly 4 characters,
+          one for each bit, with the values '0', '1', or 'X' for internal zero, internal one or external
+          from input pin, respectivly.
+        :type control_code_spec: str
+
+        :returns: None
+        """
+        assert isinstance(data, bytearray)
+        assert len(data) == 256
+        control_code_byte = self.__control_code_config_byte(control_code_spec)
+        data[self.__device_type_descriptor.control_code_addr] = control_code_byte
+
