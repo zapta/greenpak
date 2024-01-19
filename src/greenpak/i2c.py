@@ -2,7 +2,7 @@
 
 from i2c_adapter import I2cAdapter
 from i2cdriver import I2CDriver
-from typing import override
+from typing_extensions import override
 
 
 class GreenPakI2cInterface:
