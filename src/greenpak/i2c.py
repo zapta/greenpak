@@ -86,3 +86,42 @@ class GreenPakI2cDriver(GreenPakI2cInterface):
             data = self.__i2c.read(byte_count)
         self.__i2c.stop()
         return data if ack else None
+
+
+class GreenPackSMBusAdapter(GreenPakI2cInterface):
+    """An adpater to the Linux 'native' SMBus interface"""
+    import smbus2
+
+    def __init__(self, i2cbusdev="/dev/i2c-0"):
+        self.bus = self.smbus2.SMBus(i2cbusdev)
+
+    @override
+    def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
+        try:
+            if 0 == len(data):
+                #assume caller probing for GP devs on bus
+                self.bus.write_quick(addr)  #Can throw
+            else:
+                #assume data is sent/written
+                self.bus.write_i2c_block_data(addr, data[0], data[1:])
+        except Exception as e:
+            if not silent:
+                str = "SMBus: while writing to add 0x%02x: caught exception: %s" % (addr, e)
+                print(str)
+            return False
+        return True
+
+    @override
+    def read(
+        self, addr: int, byte_count: int, silent: bool = False
+    ) -> bytearray | None:
+        offset = 0
+        data = []
+        while byte_count > 0:
+            #smbus layer would support upto 32b in single op, but our pages are 
+            #len 16, so keep same?
+            xferlen = min(16, byte_count)
+            data.extend(self.bus.read_i2c_block_data(addr, offset, xferlen))
+            offset += xferlen
+            byte_count -= xferlen
+        return data
