@@ -146,5 +146,5 @@ def hex_dump(data: bytearray | bytes, start_addr: int = 0) -> None:
                 items.append(f"{col_space}  ")
             else:
                 items.append(f"{col_space}{data[addr - start_addr]:02x}")
-        print(f"{row_addr:02x}: {" ".join(items)}", flush=True)
+        print(f'{row_addr:02x}: {" ".join(items)}', flush=True)
         row_addr += 16
