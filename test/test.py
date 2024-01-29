@@ -8,7 +8,8 @@ from greenpak import driver, i2c, utils
 
 
 #port="/dev/tty.usbmodem101"
-port="/dev/tty.usbmodem1101"
+#port="/dev/tty.usbmodem1101"
+port="COM20"
 #port="COM14"
 #port="COM17"
 
