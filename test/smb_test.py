@@ -4,7 +4,7 @@
 import sys
 sys.path.append('./src/greenpak/')
 from greenpak import driver, utils, i2c
-from i2c import GreenPakI2cInterface, GreenPackSMBusAdapter
+from i2c import GreenPakI2cInterface, GreenPakSMBusAdapter
 from utils import hex_dump
 
 # def hexdump(data, showaddr=0):
@@ -18,7 +18,7 @@ from utils import hex_dump
 #         offset += count
 
 print("Testing...")
-i2c_driver = i2c.GreenPackSMBusAdapter()
+i2c_driver = i2c.GreenPakSMBusAdapter()
 
 # --- Test of emptiness  ---
 print("empty read/write to non-attached ...")
@@ -33,8 +33,8 @@ if None != i2c_driver.read(good_addr, 0, False):
 if True == i2c_driver.write(good_addr, bytearray(), False):
    print("WR: found it.")
 
-#print("GreenPackSMBusAdapter is subclass of GreenPakI2cInterface:", issubclass(GreenPackSMBusAdapter, GreenPakI2cInterface))
-#print("Type of GreenPackSMBusAdapter instance:", type(i2c_driver))
+#print("GreenPakSMBusAdapter is subclass of GreenPakI2cInterface:", issubclass(GreenPakSMBusAdapter, GreenPakI2cInterface))
+#print("Type of GreenPakSMBusAdapter instance:", type(i2c_driver))
 
 slg_code = 0b0010
 gp_driver = driver.GreenpakDriver(i2c_driver, device_type="SLG46826", device_control_code=slg_code)

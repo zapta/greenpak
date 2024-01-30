@@ -88,7 +88,7 @@ class GreenPakI2cDriver(GreenPakI2cInterface):
         return data if ack else None
 
 
-class GreenPackSMBusAdapter(GreenPakI2cInterface):
+class GreenPakSMBusAdapter(GreenPakI2cInterface):
     """An adpater to the Linux 'native' SMBus interface"""
     import smbus2
     from smbus2 import smbus2
