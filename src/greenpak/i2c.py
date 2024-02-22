@@ -1,7 +1,4 @@
 """I2C drivers for the ``greenpak`` package."""
-
-from i2c_adapter import I2cAdapter
-from i2cdriver import I2CDriver
 from typing_extensions import override
 
 
@@ -53,6 +50,7 @@ class GreenPakI2cAdapter(GreenPakI2cInterface):
     """A GreenPakI2cInterface implementation for I2C Adapter boards."""
 
     def __init__(self, port):
+        from i2c_adapter import I2cAdapter
         self.__i2c: I2cAdapter = I2cAdapter(port)
 
     @override
@@ -68,6 +66,7 @@ class GreenPakI2cDriver(GreenPakI2cInterface):
     """A GreenPakI2cInterface implementation for I2C Adapter boards."""
 
     def __init__(self, port, pullups=True):
+        from i2cdriver import I2CDriver
         self.__i2c: I2CDriver = I2CDriver(port, reset=True)
         # Per https://i2cdriver.com/i2cdriver.pdf
         # 4.7K on SCL/SDA if pullups is True, else, no pullups.
