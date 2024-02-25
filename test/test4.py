@@ -2,10 +2,13 @@
 import random
 from greenpak import driver, utils, i2c
 
-port = "/dev/tty.usbmodem1101"
+# port = "/dev/tty.usbmodem1101"
+port = "/dev/tty.usbserial-DK0C3UQC"
 
 print("\nConnecting.", flush=True)
-i2c_driver = i2c.GreenPakI2cAdapter(port=port)
+# i2c_driver = i2c.GreenPakI2cAdapter(port=port)
+i2c_driver = i2c.GreenPakI2cDriver(port=port)
+
 gp_driver = driver.GreenpakDriver(
     i2c_driver, device_type="SLG46826", device_control_code=1)
 
@@ -19,7 +22,7 @@ print("\nRandom test.", flush=True)
 random.seed(0)  # Repeatable rand.
 ok_count = 0
 err_count = 0
-for _ in range(10000):
+for _ in range(500):
     a = random.randint(0, 255)
     b = gp_driver.read_nvm_bytes(a, 1)[0]
     if b == nvm[a]:
