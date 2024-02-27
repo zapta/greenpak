@@ -67,11 +67,11 @@ class GreenPakI2cAdapter(GreenPakI2cInterface):
 class GreenPakI2cDriver(GreenPakI2cInterface):
     """A GreenPakI2cInterface implementation for I2C Adapter boards."""
 
-    def __init__(self, port):
+    def __init__(self, port, pullups=True):
         self.__i2c: I2CDriver = I2CDriver(port, reset=True)
         # Per https://i2cdriver.com/i2cdriver.pdf
-        # 4.7K pullup on SCL and SDA.
-        self.__i2c.setpullups(0b100100)
+        # 4.7K on SCL/SDA if pullups is True, else, no pullups.
+        self.__i2c.setpullups(0b100100 if pullups else 0b000000)
 
     @override
     def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
@@ -93,6 +93,7 @@ class GreenPakI2cDriver(GreenPakI2cInterface):
 
 class GreenPakSMBusAdapter(GreenPakI2cInterface):
     """An adpater to the Linux 'native' SMBus interface"""
+
     import smbus2
     from smbus2 import smbus2
 
@@ -105,27 +106,27 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
             self.bus.close()
 
     def __empty_wr(self, addr: int):
-        #The purpose of this is to probe for a slave at address, in a non-destuctive
-        #way. With SMBus layer, we could use write_quick(), provided implementation
-        #doesn't do/send anything beyond:
+        # The purpose of this is to probe for a slave at address, in a non-destuctive
+        # way. With SMBus layer, we could use write_quick(), provided implementation
+        # doesn't do/send anything beyond:
         #
-        # " .... When using write_quick, the slave address is sent along with the read/write bit. 
-        #        No additional data is transmitted. The read/write bit can be used to convey some 
-        #        simple information. For instance, you might use the read/write bit to signal a 
+        # " .... When using write_quick, the slave address is sent along with the read/write bit.
+        #        No additional data is transmitted. The read/write bit can be used to convey some
+        #        simple information. For instance, you might use the read/write bit to signal a
         #        '1' or '0' to the device .... "
         #  (More details see for e.g.: https://www.nxp.com/docs/en/application-note/AN4471.pdf)
         #
-        #The SMBus2 Linux/Python library provides interface for quick write only.
-        #(A properly working 'quick' command should properly stop (send stop bit) transaction
+        # The SMBus2 Linux/Python library provides interface for quick write only.
+        # (A properly working 'quick' command should properly stop (send stop bit) transaction
         # after n/ack  received, not leaving in some unfinished state).
-        self.bus.write_quick(addr)  #Can/will throw If no device at address
+        self.bus.write_quick(addr)  # Can/will throw If no device at address
 
     def __empty_rd(self, addr: int):
-        #A 'quick read' is not provided by SMBus layer because it is not universaly safe (e.g. as
-        #I tested, SLG would hold the bus hostage until its reset.)[ google more for info ].
-        #For an SLG, whichever memory block -reg,nvm,eeprom - we addressing, a read without
-        #first setting the data pointer should be safe, as it will return data from last
-        #address set through a previous read/write reqest. We discard the result.
+        # A 'quick read' is not provided by SMBus layer because it is not universaly safe (e.g. as
+        # I tested, SLG would hold the bus hostage until its reset.)[ google more for info ].
+        # For an SLG, whichever memory block -reg,nvm,eeprom - we addressing, a read without
+        # first setting the data pointer should be safe, as it will return data from last
+        # address set through a previous read/write reqest. We discard the result.
         self.bus._set_address(addr, None)
         msg = self.smbus2.i2c_msg.read(address=addr, length=1)
         self.bus.i2c_rdwr(msg)
@@ -134,15 +135,18 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
     def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
         try:
             if 0 == len(data):
-                #special case as we not actually writing/sending data.
-                #(assume caller probing for GP devs on bus).
-                self.__empty_wr(addr)  #Can throw
+                # special case as we not actually writing/sending data.
+                # (assume caller probing for GP devs on bus).
+                self.__empty_wr(addr)  # Can throw
             else:
-                #assume data is sent/written
+                # assume data is sent/written
                 self.bus.write_i2c_block_data(addr, data[0], data[1:])
         except Exception as e:
             if not silent:
-                str = "SMBus: while writing to addr 0x%02x: caught exception: %s" % (addr, e)
+                str = "SMBus: while writing to addr 0x%02x: caught exception: %s" % (
+                    addr,
+                    e,
+                )
                 print(str)
             return False
         return True
@@ -153,8 +157,8 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
     ) -> bytearray | None:
         try:
             if 0 == byte_count:
-                #assume caller probing for GP devs on bus
-                self.__empty_rd(addr)  #Can/will throw if no dev found.
+                # assume caller probing for GP devs on bus
+                self.__empty_rd(addr)  # Can/will throw if no dev found.
                 return bytearray()
             else:
                 offset = 0
@@ -167,6 +171,9 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
                 return bytearray(data)
         except Exception as e:
             if not silent:
-                str = "SMBus: while reading at addr 0x%02x: caught exception: %s" % (addr, e)
+                str = "SMBus: while reading at addr 0x%02x: caught exception: %s" % (
+                    addr,
+                    e,
+                )
                 print(str)
         return None
