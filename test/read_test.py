@@ -38,7 +38,7 @@ def test_mem_space(name: str, read_method) -> None:
     bad_set = set()
     ok_count = 0
     err_count = 0
-    print(f"Starting {ITERS} reads...")
+    print(f"Performing {ITERS} reads...")
     for _ in range(ITERS):
         a = random.randint(0, 255)
         b = read_method(a, 1)[0]
