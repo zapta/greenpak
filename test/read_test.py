@@ -66,7 +66,9 @@ def test_mem_space(name: str, read_method) -> None:
 # Main
     
 print("\nConnecting.", flush=True)
-i2c_driver = i2c.GreenPakI2cAdapter(port="/dev/tty.usbmodem1101")
+
+i2c_driver = i2c.GreenPakI2cDriver(port="/dev/tty.usbserial-DK0C3UQC")
+#i2c_driver = i2c.GreenPakI2cAdapter(port="/dev/tty.usbmodem1101")
 gp_driver = driver.GreenpakDriver(
     i2c_driver, device_type="SLG46826", device_control_code=1
 )

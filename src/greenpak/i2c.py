@@ -69,6 +69,9 @@ class GreenPakI2cDriver(GreenPakI2cInterface):
 
     def __init__(self, port):
         self.__i2c: I2CDriver = I2CDriver(port, reset=True)
+        # Per https://i2cdriver.com/i2cdriver.pdf
+        # 4.7K pullup on SCL and SDA.
+        self.__i2c.setpullups(0b100100)
 
     @override
     def write(self, addr: int, data: bytearray, silent: bool = False) -> bool:
