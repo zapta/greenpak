@@ -140,7 +140,15 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
                 self.__empty_wr(addr)  # Can throw
             else:
                 # assume data is sent/written
-                self.bus.write_i2c_block_data(addr, data[0], data[1:])
+                regaddr = data[0]
+                regdata = data[1:]
+                bytesleft = len(regdata)
+                offset = 0
+                while bytesleft > 0:
+                    xferlen = min(self.smbus2.I2C_SMBUS_BLOCK_MAX, bytesleft)
+                    self.bus.write_i2c_block_data(addr, regaddr, regdata[offset:offset + xferlen])
+                    offset += xferlen
+                    bytesleft -= xferlen
         except Exception as e:
             if not silent:
                 str = "SMBus: while writing to addr 0x%02x: caught exception: %s" % (
