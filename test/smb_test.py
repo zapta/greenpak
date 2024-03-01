@@ -70,3 +70,6 @@ if found:
   eep_bytes = gp_driver.read_eeprom_bytes(0, 256)
   print("~ Dumping eep mem ... ~")
   hex_dump(eep_bytes)
+  print("~tesing write to reg mem...~")
+  data = utils.read_bits_config_file("./test/test_data/slg46826_blinky_slow.txt")
+  gp_driver.write_register_bytes(0, data)
