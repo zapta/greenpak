@@ -138,6 +138,22 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
                 # special case as we not actually writing/sending data.
                 # (assume caller probing for GP devs on bus).
                 self.__empty_wr(addr)  # Can throw
+            elif 2 == len(data):
+                # Due to device(SLG46826x) NACK'ing us on erase request (ref. errata sheet), the smbus will
+                # throw error, but we need to ignore it, otherwise whole erase/write will fail higher up the stack.
+                regaddr = data[0]
+                if regaddr == 0xE3:  # An erase request, possibly
+                    import inspect
+                    stack = inspect.stack()
+                    for frame_info in stack:
+                        # ..but it can be anyone of 3 regions, and we don't know
+                        # at _this_ stack level where it is; upper driver has that nfo
+                        # So this is dirty as.
+                        if frame_info.function == '__erase_page':
+                            try:
+                                self.bus.write_i2c_block_data(addr, regaddr, [data[1]])
+                            except Exception as e:
+                                print(f'{self.__class__.__name__}: ignoring exception "{e}" while erase page called.')
             else:
                 # assume data is sent/written
                 regaddr = data[0]
@@ -149,6 +165,7 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
                     self.bus.write_i2c_block_data(addr, regaddr, regdata[offset:offset + xferlen])
                     offset += xferlen
                     bytesleft -= xferlen
+                    regaddr += xferlen
         except Exception as e:
             if not silent:
                 str = "SMBus: while writing to addr 0x%02x: caught exception: %s" % (
