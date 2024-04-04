@@ -124,10 +124,7 @@ class GreenpakDriver:
         # Construct the i2c address.
         device_i2c_addr = self.__i2c_device_addr(memory_space)
 
-        # Write the start address to read.
-        ok = self.__i2c.write(device_i2c_addr, bytearray([start_address]))
-        assert ok
-        resp_bytes = self.__i2c.read(device_i2c_addr, n)
+        resp_bytes = self.__i2c.gp_read(device_i2c_addr, start_address, n)
 
         assert resp_bytes is not None
         assert n == len(resp_bytes)
@@ -218,12 +215,7 @@ class GreenpakDriver:
         device_i2c_addr = self.__i2c_device_addr(memory_space)
 
         # We write the start address followed by the data bytes
-        payload = bytearray()
-        payload.append(start_address)
-        payload.extend(data)
-
-        # Write the data
-        ok = self.__i2c.write(device_i2c_addr, bytearray(payload))
+        ok = self.__i2c.gp_write(device_i2c_addr, start_address, data)
         assert ok
 
     def __read_page(self, memory_space: _MemorySpace, page_index: int) -> bool:
@@ -265,7 +257,7 @@ class GreenpakDriver:
         # This is a workaround for the erase issue describe in the errata at:
         # https://www.renesas.com/us/en/document/dve/slg46824-errata?language=en
         device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
-        self.__i2c.write(device_i2c_addr, bytearray([0]), silent=True)
+        self.__i2c.gp_write(device_i2c_addr, 0, bytearray([0]))
 
         # Verify that the page is all zeros.
         assert self.__is_page_erased(memory_space, page_index)
@@ -430,7 +422,7 @@ class GreenpakDriver:
             device_i2c_addr = self.__i2c_device_addr(
                 _MemorySpace.REGISTER, control_code
             )
-            ok = ok and self.__i2c.write(device_i2c_addr, bytearray([]), silent=True)
+            ok = ok and self.__i2c.gp_write(device_i2c_addr, 0, bytearray([]))
         return ok
 
     def scan_greenpak_devices(self) -> None:
