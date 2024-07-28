@@ -15,8 +15,6 @@ from importlib import resources as impresources
 import greenpak.utils as utils
 
 
-
-
 class _MemorySpace(Enum):
     """The four memory spaces of a GreenPak."""
 
@@ -256,8 +254,8 @@ class GreenpakDriver:
         # Errata woraround. Perform a dummy write to clear the error from the previous write.
         # This is a workaround for the erase issue describe in the errata at:
         # https://www.renesas.com/us/en/document/dve/slg46824-errata?language=en
-        device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
-        self.__i2c.gp_write(device_i2c_addr, 0, bytearray([0]))
+        # device_i2c_addr = self.__i2c_device_addr(_MemorySpace.REGISTER)
+        # self.__i2c.gp_write(device_i2c_addr, 0, bytearray([0]))
 
         # Verify that the page is all zeros.
         assert self.__is_page_erased(memory_space, page_index)
@@ -315,7 +313,7 @@ class GreenpakDriver:
         for i in range(0, num_pages):
             if not self.__is_page_writeable(memory_space, i):
                 print(
-                    f"Page {memory_space.name}/{i} a read only page, skipping.",
+                    f"Page {memory_space.name}/{i} a read-only page, skipping.",
                     flush=True,
                 )
             else:
@@ -454,12 +452,11 @@ class GreenpakDriver:
             c = control_code_spec[i]
             if c == "1":
                 # Set bit internal value to 1.
-                control_byte |= (1 << (3 - i))
+                control_byte |= 1 << (3 - i)
             elif c == "X":
                 # Set bit selection to external.
-                control_byte |= (1 << (7 - i))
+                control_byte |= 1 << (7 - i)
         return control_byte
-
 
     def program_control_code(self, control_code_spec: str) -> None:
         """Program device(s) control code(s).
@@ -526,11 +523,11 @@ class GreenpakDriver:
 
     def adjust_control_code(self, data: bytearray, control_code_spec: str) -> None:
         """Patch a new control code in given device configuration
-        
+
         Given a device configuration and a specification of a device control code, patch
         the configuration to have the desired control code.
 
-        Note that control code is patched according to the currently set device type and therfore 
+        Note that control code is patched according to the currently set device type and therfore
         it's import to have it set correctly before calling this method.
 
         :param data: The device configuration. Asserted to have ``len(data) == 256```.
@@ -547,4 +544,3 @@ class GreenpakDriver:
         assert len(data) == 256
         control_code_byte = self.__control_code_config_byte(control_code_spec)
         data[self.__device_type_descriptor.control_code_addr] = control_code_byte
-

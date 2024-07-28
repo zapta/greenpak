@@ -9,8 +9,8 @@ import os
 # installed it into your environment. ---->
 sys.path.append('./src/greenpak/')
 from greenpak import driver, utils, i2c
-from i2c import GreenPakI2cInterface, GreenPakSMBusAdapter
-from utils import hex_dump
+# from i2c import GreenPakI2cInterface, GreenPakSMBusAdapter
+# from utils import hex_dump
 #          ..... <--------------------
 # Use this if you haven't built and/or installed GreenPak library, and you working with the sources
 # as layed out in the repo  ---------->
@@ -50,7 +50,7 @@ found = True
 try:
   reg_bytes = gp_driver.read_register_bytes(0, 256)
   print("~ Dumping reg mem ... ~")
-  hex_dump(reg_bytes)
+  utils.hex_dump(reg_bytes)
 except Exception as e:
     print(f' Likely NO device at your control code 0x{slg_code:02x} !')
     found = False
@@ -70,13 +70,13 @@ if found:
   #gp_driver.reset_device()
   reg_bytes = gp_driver.read_register_bytes(0, 256)
   print("~ Dumping reg mem ... ~")
-  hex_dump(reg_bytes)
+  utils.hex_dump(reg_bytes)
   nvm_bytes = gp_driver.read_nvm_bytes(0, 256)
   print("~ Dumping nvm mem ... ~")
-  hex_dump(nvm_bytes)
+  utils.hex_dump(nvm_bytes)
   eep_bytes = gp_driver.read_eeprom_bytes(0, 256)
   print("~ Dumping eep mem ... ~")
-  hex_dump(eep_bytes)
+  utils.hex_dump(eep_bytes)
   print("~tesing write to reg mem...~")
   data = utils.read_bits_config_file("./test/test_data/slg46826_blinky_slow.txt")
   gp_driver.write_register_bytes(0, data)

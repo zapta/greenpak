@@ -21,13 +21,14 @@ def randomize_eeprom(gpd: driver.GreenpakDriver):
     gpd.reset_device()
 
 
-def format_set(s:set):
+def format_set(s: set):
     l = list(s)
     l.sort()
     l_str = []
     for b in l:
         l_str.append(f"{b:02x}")
     return str(l_str)
+
 
 def test_mem_space(name: str, read_method) -> None:
     print(f"\n\n ------ Testing {name} memory space.")
@@ -53,9 +54,9 @@ def test_mem_space(name: str, read_method) -> None:
             bad_set.add(a)
         # Verbose log
         if VERBOSE or not ok:
-          print(
-              f"addr {a:02x}, ref: {mem[a]:02x}, read: {b:02x}  {status}     {ok_count}/{err_count}"
-          )
+            print(
+                f"addr {a:02x}, ref: {mem[a]:02x}, read: {b:02x}  {status}     {ok_count}/{err_count}"
+            )
     print(f"Ok  reads: {ok_count}")
     print(f"Err reads: {err_count}")
     print(f"Good address count: {len(good_set)}")
@@ -64,11 +65,11 @@ def test_mem_space(name: str, read_method) -> None:
 
 
 # Main
-    
+
 print("\nConnecting.", flush=True)
 
-i2c_driver = i2c.GreenPakI2cDriver(port="/dev/tty.usbserial-DK0C3UQC")
-#i2c_driver = i2c.GreenPakI2cAdapter(port="/dev/tty.usbmodem1101")
+# i2c_driver = i2c.GreenPakI2cDriver(port="/dev/tty.usbserial-DK0C3UQC")
+i2c_driver = i2c.GreenPakI2cAdapter(port="/dev/tty.usbmodem1401")
 gp_driver = driver.GreenpakDriver(
     i2c_driver, device_type="SLG46826", device_control_code=1
 )
@@ -77,4 +78,3 @@ randomize_eeprom(gp_driver)
 test_mem_space("EEPROM", gp_driver.read_eeprom_bytes)
 test_mem_space("NVM", gp_driver.read_nvm_bytes)
 test_mem_space("REGISTER", gp_driver.read_register_bytes)
-
