@@ -37,6 +37,11 @@ class GreenPakI2cInterface:
 
         assert False, f"Class {self.__class__} does not implement gp_read()"
 
+    def _is_errata(self, start: int, byte_count: int) -> bool:
+        """An internal helper to detect writes that are subject to the Greenpak erase errata.
+        """
+        return (start == 0xe3) and (byte_count == 1)
+
 
 class GreenPakI2cAdapter(GreenPakI2cInterface):
     """A GreenPakI2cInterface implementation for I2C Adapter boards."""
@@ -65,14 +70,15 @@ class GreenPakI2cAdapter(GreenPakI2cInterface):
         # print(
         #     f"{self.__class__}.gp_write(): Addr: {i2c_addr:07b}, Start: 0x{start:02x}, count: {len(data)}"
         # )
-
         payload = bytearray()
         payload.append(start)
         payload.extend(data)
-        # Setting silent=True since it's normal to have errors when erasing, per the errata.
-        ok = self.__i2c.write(i2c_addr, payload, silent=True)
-        # Clear errors in case we just wrote to 0xe3, per the errata.
-        self.__i2c.write(i2c_addr, bytearray([]), silent=True)
+        # When the errata applies, we want to supress the false error regarding the missing nak.
+        is_errata = self._is_errata(start, len(data))
+        ok = self.__i2c.write(i2c_addr, payload, silent=is_errata)
+        if is_errata(start, len(data)):
+           # A dummy write to clear the no-ack error.
+           self.__i2c.write(i2c_addr, bytearray([]), silent=True)
         return ok
 
 
@@ -233,6 +239,7 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
                 # (assume caller probing for GP devs on bus).
                 self.__empty_wr(i2c_addr)  # Can throw
             elif 1 == len(data):
+                # TODO: Use self._is_errata() to trigger the errata handling.
                 if start == 0xE3:  # A non-volatile mem erase request, _possibly_
                     return self.__gp_wr_0xE3_reg(i2c_addr, data)
                 else:
