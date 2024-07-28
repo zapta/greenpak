@@ -76,7 +76,7 @@ class GreenPakI2cAdapter(GreenPakI2cInterface):
         # When the errata applies, we want to supress the false error regarding the missing nak.
         is_errata = self._is_errata(start, len(data))
         ok = self.__i2c.write(i2c_addr, payload, silent=is_errata)
-        if is_errata(start, len(data)):
+        if is_errata:
            # A dummy write to clear the no-ack error.
            self.__i2c.write(i2c_addr, bytearray([]), silent=True)
         return ok
