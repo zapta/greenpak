@@ -263,3 +263,49 @@ class GreenPakSMBusAdapter(GreenPakI2cInterface):
             return False
 
         return True
+
+
+class GreenPakBusPirate(GreenPakI2cInterface):
+    """A GreenPakI2cInterface implementation for I2C Adapter boards."""
+
+    from vendor.pyBusPirateLite.I2C import I2C, ProtocolError
+
+    def __init__(self, port):
+        print(f"Creating an i2c {type(self).__name__}  driver.")
+        self.__i2c = self.I2C(port)
+        self.__i2c.speed = '400kHz'
+        self.__i2c.configure(power=True, pullup=True)
+
+    def _get_write_addr(self, i2c_addr: int) -> int:
+        return i2c_addr << 1
+
+    def _get_read_addr(self, i2c_addr: int) -> int:
+        return (i2c_addr << 1) + 1
+
+    @override
+    def gp_read(self, i2c_addr: int, start: int, byte_count: int) -> bytearray | None:
+        data = None
+        write_addr = self._get_write_addr(i2c_addr)
+        read_addr = self._get_read_addr(i2c_addr)
+        # Need to use start and transfer commands as I need to insert another start bit before
+        # sending out the read address without sending a stop bit. write_then_read sends out
+        # all the data, then starts reading.
+        try:
+            self.__i2c.start()
+            self.__i2c.transfer([write_addr, start])
+            data = self.__i2c.write_then_read(1, byte_count, [read_addr])
+        except self.ProtocolError:
+            return None
+        return data
+
+    @override
+    def gp_write(self, i2c_addr: int, start: int, data: bytearray) -> bool:
+        payload = bytearray()
+        payload.append(self._get_write_addr(i2c_addr))
+        payload.append(start)
+        payload.extend(data)
+        try:
+            self.__i2c.write_then_read(len(payload), 0, payload)
+        except self.ProtocolError:
+            return self._is_errata(start, len(data))
+        return True

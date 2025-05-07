@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "greenpak"
-version = "0.0.28"
+version = "0.0.29"
 authors = [
   { name="Zapta", email="zapta@zapta.com" },
 ]
@@ -28,6 +28,7 @@ dependencies = [
     "i2cdriver >=1.0.1",
     "intelhex>=2.3.0",
     "smbus2==0.4.3",
+    "hackPyrateBus>=0.0.6",
 ]
 
 [tool.hatch.build.targets.sdist]
