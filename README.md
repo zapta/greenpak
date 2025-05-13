@@ -6,7 +6,7 @@ This Python package provides a simple to use API to read/write/program Renseas G
 As of May 2025, the package supports the following USB to I2C interfaces and new ones can be easily added based on the examples in [i2c.py](https://github.com/zapta/greenpak/blob/main/src/greenpak/i2c.py): 
 * [I2C Driver](https://pypi.org/project/i2cdriver/) (two variants, mini and full.)
 * [I2C Adapter](https://pypi.org/project/i2c-adapter/) (four variants, including a bare Raspberry Pico.)
-* [Bus Pirate](https://dangerousprototypes.com/docs/Bus_Pirate) (v2, v3 and v4)
+* [Bus Pirate](https://en.wikipedia.org/wiki/Bus_Pirate) (v2, v3 and v4)
 
 Sample usage using an [I2C Adapter](https://pypi.org/project/i2c-adapter):
 
