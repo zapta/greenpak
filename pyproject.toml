@@ -29,6 +29,7 @@ dependencies = [
     "intelhex>=2.3.0",
     "smbus2==0.4.3",
     "hackPyrateBus>=0.0.6",
+    "typing_extensions>=4.7.1",
 ]
 
 [tool.hatch.build.targets.sdist]
