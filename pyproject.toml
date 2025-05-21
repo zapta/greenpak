@@ -10,7 +10,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "greenpak"
-version = "0.0.30"
+version = "0.0.31"
 authors = [
   { name="Zapta", email="zapta@zapta.com" },
 ]
